@@ -15,11 +15,12 @@ import {
   handleNotFound, 
   handleDatabaseError, 
   handleInternalError,
+  handleFilterError,
   buildPaginatedQuery,
-  buildSearchQuery,
   createPaginatedResponse,
   checkEntityExists
 } from '../utils/controllerHelpers';
+import { getLanguageFromRequest, getSuccessMessage } from '../utils/translations';
 
 /**
  * Create a new user
@@ -31,7 +32,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
     const validationResult = CreateUserSchema.safeParse(req.body);
     
     if (!validationResult.success) {
-      handleValidationError(validationResult, res);
+      handleValidationError(validationResult, res, req);
       return;
     }
 
@@ -52,7 +53,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
       .single();
 
     if (error) {
-      handleDatabaseError('INSERT', 'users', error, res);
+      handleDatabaseError('INSERT', 'users', error, res, req);
       return;
     }
 
@@ -61,7 +62,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
     res.status(201).json(apiUser);
 
   } catch (error) {
-    handleInternalError('creating user', error, res);
+    handleInternalError('creating user', error, res, req);
   }
 }
 
@@ -75,7 +76,7 @@ export async function getUsers(req: Request, res: Response): Promise<void> {
     const validationResult = UserQueryParamsSchema.safeParse(req.query);
     
     if (!validationResult.success) {
-      handleValidationError(validationResult, res);
+      handleValidationError(validationResult, res, req);
       return;
     }
 
@@ -114,15 +115,7 @@ export async function getUsers(req: Request, res: Response): Promise<void> {
         const parsedFilter = parseFilter(decodedFilter);
         query = applyFiltersToQuery(query, parsedFilter);
       } catch (filterError) {
-        handleValidationError({
-          success: false,
-          error: {
-            errors: [{
-              message: filterError instanceof Error ? filterError.message : 'Invalid filter syntax',
-              path: ['filter']
-            }]
-          }
-        }, res);
+        handleFilterError(filterError, res, req);
         return;
       }
     }
@@ -137,7 +130,7 @@ export async function getUsers(req: Request, res: Response): Promise<void> {
     const { data: users, error, count } = await query;
 
     if (error) {
-      handleDatabaseError('SELECT', 'users', error, res);
+      handleDatabaseError('SELECT', 'users', error, res, req);
       return;
     }
 
@@ -149,7 +142,7 @@ export async function getUsers(req: Request, res: Response): Promise<void> {
     res.status(200).json(response);
 
   } catch (error) {
-    handleInternalError('fetching users', error, res);
+    handleInternalError('fetching users', error, res, req);
   }
 }
 
@@ -177,7 +170,7 @@ export async function getUserById(req: Request, res: Response): Promise<void> {
       .single();
 
     if (error || !user) {
-      handleNotFound('User', res);
+      handleNotFound('User', res, req);
       return;
     }
 
@@ -186,7 +179,7 @@ export async function getUserById(req: Request, res: Response): Promise<void> {
     res.status(200).json(apiUser);
 
   } catch (error) {
-    handleInternalError('fetching user', error, res);
+    handleInternalError('fetching user', error, res, req);
   }
 }
 
@@ -210,7 +203,7 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
     const validationResult = UpdateUserSchema.safeParse(req.body);
     
     if (!validationResult.success) {
-      handleValidationError(validationResult, res);
+      handleValidationError(validationResult, res, req);
       return;
     }
 
@@ -219,7 +212,7 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
     // Check if user exists first
     const exists = await checkEntityExists('users', id);
     if (!exists) {
-      handleNotFound('User', res);
+      handleNotFound('User', res, req);
       return;
     }
 
@@ -235,7 +228,7 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
       .single();
 
     if (error) {
-      handleDatabaseError('UPDATE', 'users', error, res);
+      handleDatabaseError('UPDATE', 'users', error, res, req);
       return;
     }
 
@@ -244,7 +237,7 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
     res.status(200).json(apiUser);
 
   } catch (error) {
-    handleInternalError('updating user', error, res);
+    handleInternalError('updating user', error, res, req);
   }
 }
 
@@ -267,7 +260,7 @@ export async function deleteUser(req: Request, res: Response): Promise<void> {
     // Check if user exists first
     const exists = await checkEntityExists('users', id);
     if (!exists) {
-      handleNotFound('User', res);
+      handleNotFound('User', res, req);
       return;
     }
 
@@ -279,17 +272,20 @@ export async function deleteUser(req: Request, res: Response): Promise<void> {
       .eq('id', id);
 
     if (error) {
-      handleDatabaseError('DELETE', 'users', error, res);
+      handleDatabaseError('DELETE', 'users', error, res, req);
       return;
     }
 
     // Return success confirmation
+    const language = getLanguageFromRequest(req);
+    const message = getSuccessMessage('deleted', 'user', language);
+    
     res.status(200).json({
-      message: 'User deleted successfully',
+      message,
       id: id
     });
 
   } catch (error) {
-    handleInternalError('deleting user', error, res);
+    handleInternalError('deleting user', error, res, req);
   }
 }

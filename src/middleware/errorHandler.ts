@@ -1,6 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { ErrorResponse } from '../types';
+import { 
+  getLanguageFromRequest, 
+  getTranslations, 
+  createValidationMessage,
+  getRelationshipErrorMessage
+} from '../utils/translations';
 
 // Generate unique request ID for tracking
 export function generateRequestId(): string {
@@ -33,11 +39,31 @@ export function errorHandler(
 
   // Zod validation errors
   if (error instanceof ZodError) {
+    const language = getLanguageFromRequest(req);
+    const firstError = error.errors[0];
+    let message = getTranslations(language).errors.validation.invalid_data;
+    
+    if (firstError) {
+      const field = firstError.path.join('.');
+      const errorCode = firstError.code;
+      const errorMessage = firstError.message;
+      
+      let errorType = 'invalid_data';
+      
+      if (errorCode === 'invalid_type' && errorMessage.includes('Required')) {
+        errorType = 'required';
+      } else if (errorMessage.includes('email')) {
+        errorType = 'email';
+      } else if (errorMessage.includes('uuid')) {
+        errorType = 'uuid';
+      }
+      
+      message = createValidationMessage(field, errorType, language);
+    }
+    
     const errorResponse: ErrorResponse = {
-      error: 'Validation Error',
-      message: 'Invalid data provided',
-      details: error.errors,
-      request_id: requestId
+      message,
+      status: 400
     };
     res.status(400).json(errorResponse);
     return;
@@ -45,47 +71,33 @@ export function errorHandler(
 
   // Supabase/Database errors
   if (error.code) {
+    const language = getLanguageFromRequest(req);
+    const t = getTranslations(language);
     let statusCode = 500;
-    let errorType = 'Database Error';
-    let message = 'Database operation failed';
+    let message = t.errors.server.internal_error;
 
     switch (error.code) {
       case '23503': // Foreign key violation
         statusCode = 400;
-        errorType = 'Foreign Key Violation';
-        message = 'Referenced record does not exist';
+        message = getRelationshipErrorMessage(error.details || '', language);
         break;
       case '23505': // Unique constraint violation
-        statusCode = 409;
-        errorType = 'Constraint Violation';
-        message = 'Record already exists';
+        statusCode = 400;
+        message = t.errors.constraints.duplicate_record;
         break;
       case '23514': // Check constraint violation
         statusCode = 400;
-        errorType = 'Constraint Violation';
-        message = 'Data violates database constraints';
+        message = t.errors.constraints.data_constraint_violation;
         break;
-      case '42P01': // Undefined table
+      default:
         statusCode = 500;
-        errorType = 'Database Configuration Error';
-        message = 'Database table not found';
-        break;
-      case '42703': // Undefined column
-        statusCode = 500;
-        errorType = 'Database Configuration Error';
-        message = 'Database column not found';
+        message = t.errors.server.internal_error;
         break;
     }
 
     const errorResponse: ErrorResponse = {
-      error: errorType,
       message,
-      details: {
-        code: error.code,
-        details: error.details,
-        hint: error.hint
-      },
-      request_id: requestId
+      status: statusCode
     };
     res.status(statusCode).json(errorResponse);
     return;
@@ -93,14 +105,12 @@ export function errorHandler(
 
   // Authentication API errors (from fetch failures)
   if (error.name === 'FetchError' || error.code === 'ECONNREFUSED') {
+    const language = getLanguageFromRequest(req);
+    const t = getTranslations(language);
+    
     const errorResponse: ErrorResponse = {
-      error: 'External API Error',
-      message: 'Authentication service unavailable',
-      details: {
-        service: 'Authentication API',
-        error: error.message
-      },
-      request_id: requestId
+      message: t.errors.server.service_unavailable,
+      status: 502
     };
     res.status(502).json(errorResponse);
     return;
@@ -108,28 +118,25 @@ export function errorHandler(
 
   // HTTP errors (from external API calls)
   if (error.status && error.statusText) {
+    const language = getLanguageFromRequest(req);
+    const t = getTranslations(language);
+    
     const errorResponse: ErrorResponse = {
-      error: 'External API Error',
-      message: `External service returned ${error.status}: ${error.statusText}`,
-      details: {
-        status: error.status,
-        statusText: error.statusText
-      },
-      request_id: requestId
+      message: t.errors.server.external_service_error,
+      status: 502
     };
     res.status(502).json(errorResponse);
     return;
   }
 
   // Generic server errors
+  const language = getLanguageFromRequest(req);
+  const t = getTranslations(language);
+  const message = error instanceof Error ? error.message : t.errors.server.internal_error;
+  
   const errorResponse: ErrorResponse = {
-    error: 'Internal Server Error',
-    message: 'An unexpected error occurred',
-    details: process.env.NODE_ENV === 'development' ? {
-      message: error.message,
-      stack: error.stack
-    } : undefined,
-    request_id: requestId
+    message,
+    status: 500
   };
   
   res.status(500).json(errorResponse);
@@ -137,12 +144,12 @@ export function errorHandler(
 
 // 404 handler for undefined routes
 export function notFoundHandler(req: Request, res: Response): void {
-  const requestId = (req as any).requestId || generateRequestId();
+  const language = getLanguageFromRequest(req);
+  const t = getTranslations(language);
   
   const errorResponse: ErrorResponse = {
-    error: 'Not Found',
-    message: `Route ${req.method} ${req.path} not found`,
-    request_id: requestId
+    message: `${t.errors.not_found.route}: ${req.method} ${req.path}`,
+    status: 404
   };
   
   res.status(404).json(errorResponse);

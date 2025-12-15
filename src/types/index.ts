@@ -84,7 +84,7 @@ export interface AccountDB {
   id: string;
   name: string;
   segment: string;
-  owner_id: string;
+  responsible_id: string;
   status: string;
   type: string;
   pipeline: string;
@@ -103,7 +103,7 @@ export interface Account {
   id: string;
   name: string;
   segment: string;
-  ownerId: string;
+  responsibleId: string;
   status: string;
   type: string;
   pipeline: string;
@@ -154,10 +154,8 @@ export interface TokenCache {
 
 // API Response Interfaces
 export interface ErrorResponse {
-  error: string;
   message: string;
-  details?: any;
-  request_id?: string;
+  status: number;
 }
 
 export interface PaginatedResponse<T> {
@@ -169,7 +167,7 @@ export interface PaginatedResponse<T> {
 export interface CreateAccountRequest {
   name: string;
   segment: string;
-  ownerId: string;
+  responsibleId: string;
   email?: string;
   phone?: string;
   cnpj?: string;
@@ -181,7 +179,7 @@ export interface CreateAccountRequest {
 export interface UpdateAccountRequest {
   name?: string;
   segment?: string;
-  ownerId?: string;
+  responsibleId?: string;
   status?: string;
   type?: string;
   pipeline?: string;
@@ -263,7 +261,7 @@ export function accountDbToApi(dbAccount: AccountDB): Account {
     id: dbAccount.id,
     name: dbAccount.name,
     segment: dbAccount.segment,
-    ownerId: dbAccount.owner_id,
+    responsibleId: dbAccount.responsible_id,
     status: dbAccount.status,
     type: dbAccount.type,
     pipeline: dbAccount.pipeline,
@@ -285,7 +283,7 @@ export function accountApiToDb(apiAccount: CreateAccountRequest | UpdateAccountR
   
   if ('name' in apiAccount && apiAccount.name !== undefined) dbAccount.name = apiAccount.name;
   if ('segment' in apiAccount && apiAccount.segment !== undefined) dbAccount.segment = apiAccount.segment;
-  if ('ownerId' in apiAccount && apiAccount.ownerId !== undefined) dbAccount.owner_id = apiAccount.ownerId;
+  if ('responsibleId' in apiAccount && apiAccount.responsibleId !== undefined) dbAccount.responsible_id = apiAccount.responsibleId;
   if ('status' in apiAccount && apiAccount.status !== undefined) dbAccount.status = apiAccount.status;
   if ('type' in apiAccount && apiAccount.type !== undefined) dbAccount.type = apiAccount.type;
   if ('pipeline' in apiAccount && apiAccount.pipeline !== undefined) dbAccount.pipeline = apiAccount.pipeline;

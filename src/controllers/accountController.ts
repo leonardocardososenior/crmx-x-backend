@@ -9,9 +9,20 @@ import {
   UpdateAccountInput,
   QueryParamsInput 
 } from '../schemas/accountSchemas';
-import { Account, AccountDB, PaginatedResponse, ErrorResponse, accountDbToApi, accountApiToDb, AccountStatuses, AccountTypes } from '../types';
+import { Account, AccountDB, accountDbToApi, accountApiToDb, AccountStatuses, AccountTypes } from '../types';
 import { parseFilter, applyFiltersToQuery } from '../utils/filterParser';
 import { logger } from '../utils/logger';
+import { 
+  handleValidationError, 
+  handleNotFound, 
+  handleDatabaseError, 
+  handleInternalError,
+  handleFilterError,
+  buildPaginatedQuery,
+  createPaginatedResponse,
+  checkEntityExists
+} from '../utils/controllerHelpers';
+import { getLanguageFromRequest, getSuccessMessage } from '../utils/translations';
 
 /**
  * Create a new account
@@ -22,16 +33,11 @@ export async function createAccount(req: Request, res: Response): Promise<void> 
     // Validate request body using Zod schema
     const validationResult = CreateAccountSchema.safeParse(req.body);
     
-    if (!validationResult.success) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: 'Invalid account data provided',
-        details: validationResult.error.errors
-      } as ErrorResponse);
+    if (handleValidationError(validationResult, res, req)) {
       return;
     }
 
-    const accountData: CreateAccountInput = validationResult.data;
+    const accountData = validationResult.data!;
 
     // Convert API data (camelCase) to database format (snake_case) and add defaults
     const dbAccountData = accountApiToDb(accountData);
@@ -51,23 +57,7 @@ export async function createAccount(req: Request, res: Response): Promise<void> 
       .single();
 
     if (error) {
-      logger.dbError('INSERT', 'account', error as Error);
-      
-      // Handle foreign key constraint violation (invalid owner_id)
-      if (error.code === '23503' && error.details?.includes('owner_id')) {
-        res.status(400).json({
-          error: 'Foreign Key Violation',
-          message: 'Invalid owner_id: referenced user does not exist',
-          details: error
-        } as ErrorResponse);
-        return;
-      }
-
-      res.status(500).json({
-        error: 'Database Error',
-        message: 'Failed to create account',
-        details: error
-      } as ErrorResponse);
+      handleDatabaseError('INSERT', 'account', error, res, req);
       return;
     }
 
@@ -76,11 +66,7 @@ export async function createAccount(req: Request, res: Response): Promise<void> 
     res.status(201).json(apiAccount);
 
   } catch (error) {
-    logger.error('CONTROLLER', 'Error in createAccount', error as Error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'An unexpected error occurred while creating the account'
-    } as ErrorResponse);
+    handleInternalError('creating account', error, res, req);
   }
 }
 
@@ -93,21 +79,15 @@ export async function getAccounts(req: Request, res: Response): Promise<void> {
     // Validate query parameters using Zod schema
     const validationResult = QueryParamsSchema.safeParse(req.query);
     
-    if (!validationResult.success) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: 'Invalid query parameters provided',
-        details: validationResult.error.errors
-      } as ErrorResponse);
+    if (handleValidationError(validationResult, res, req)) {
       return;
     }
 
-    const queryParams: QueryParamsInput = validationResult.data;
+    const queryParams = validationResult.data!;
 
     // Set default pagination values
     const page = queryParams.page || 1;
     const size = queryParams.size || 10;
-    const offset = (page - 1) * size;
 
     // Build base query
     let query = supabaseAdmin.from('account').select('*', { count: 'exact' });
@@ -161,16 +141,12 @@ export async function getAccounts(req: Request, res: Response): Promise<void> {
         }
       }
       logger.filterParsing(decodedFilter, false, filterError as Error);
-      res.status(400).json({
-        error: 'Invalid Filter',
-        message: filterError instanceof Error ? filterError.message : 'Invalid filter syntax',
-        details: { filter: queryParams.filter }
-      } as ErrorResponse);
+      handleFilterError(filterError, res, req);
       return;
     }
 
     // Apply pagination
-    query = query.range(offset, offset + size - 1);
+    query = buildPaginatedQuery(query, page, size);
 
     // Order by created_at descending
     query = query.order('created_at', { ascending: false });
@@ -179,39 +155,58 @@ export async function getAccounts(req: Request, res: Response): Promise<void> {
     const { data: accounts, error, count } = await query;
 
     if (error) {
-      logger.dbError('SELECT', 'account', error as Error);
-      res.status(500).json({
-        error: 'Database Error',
-        message: 'Failed to fetch accounts',
-        details: error
-      } as ErrorResponse);
+      handleDatabaseError('SELECT', 'account', error, res, req);
       return;
     }
-
-    // Calculate pagination metadata
-    const totalElements = count || 0;
-    const totalPages = Math.ceil(totalElements / size);
 
     // Convert database results (snake_case) to API format (camelCase)
     const apiAccounts = (accounts as AccountDB[]).map(accountDbToApi);
     
     // Return paginated response
-    const response: PaginatedResponse<Account> = {
-      contents: apiAccounts,
-      totalElements,
-      totalPages
-    };
-
+    const response = createPaginatedResponse(apiAccounts, count || 0, page, size);
     res.status(200).json(response);
 
   } catch (error) {
-    logger.error('CONTROLLER', 'Error in getAccounts', error as Error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'An unexpected error occurred while fetching accounts'
-    } as ErrorResponse);
+    handleInternalError('fetching accounts', error, res, req);
   }
 }
+
+/**
+ * Get a single account by ID
+ * GET /api/accounts/:id
+ */
+export async function getAccountById(req: Request, res: Response): Promise<void> {
+  try {
+    // Validate route parameters
+    const paramValidation = AccountIdParamSchema.safeParse(req.params);
+    
+    if (handleValidationError(paramValidation, res)) {
+      return;
+    }
+
+    const { id } = paramValidation.data!;
+
+    // Fetch account from database
+    const { data: account, error } = await supabaseAdmin
+      .from('account')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error || !account) {
+      handleNotFound('Account', res, req);
+      return;
+    }
+
+    // Convert database result (snake_case) to API format (camelCase) and return
+    const apiAccount = accountDbToApi(account as AccountDB);
+    res.status(200).json(apiAccount);
+
+  } catch (error) {
+    handleInternalError('fetching account', error, res, req);
+  }
+}
+
 /**
  * Update an existing account
  * PUT /api/accounts/:id
@@ -221,43 +216,25 @@ export async function updateAccount(req: Request, res: Response): Promise<void> 
     // Validate route parameters
     const paramValidation = AccountIdParamSchema.safeParse(req.params);
     
-    if (!paramValidation.success) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: 'Invalid account ID provided',
-        details: paramValidation.error.errors
-      } as ErrorResponse);
+    if (handleValidationError(paramValidation, res)) {
       return;
     }
 
-    const { id } = paramValidation.data;
+    const { id } = paramValidation.data!;
 
     // Validate request body using Zod schema
     const validationResult = UpdateAccountSchema.safeParse(req.body);
     
-    if (!validationResult.success) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: 'Invalid account update data provided',
-        details: validationResult.error.errors
-      } as ErrorResponse);
+    if (handleValidationError(validationResult, res, req)) {
       return;
     }
 
-    const updateData: UpdateAccountInput = validationResult.data;
+    const updateData = validationResult.data!;
 
     // Check if account exists first
-    const { data: existingAccount, error: fetchError } = await supabaseAdmin
-      .from('account')
-      .select('id')
-      .eq('id', id)
-      .single();
-
-    if (fetchError || !existingAccount) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: 'Account not found'
-      } as ErrorResponse);
+    const exists = await checkEntityExists('account', id);
+    if (!exists) {
+      handleNotFound('Account', res, req);
       return;
     }
 
@@ -277,23 +254,7 @@ export async function updateAccount(req: Request, res: Response): Promise<void> 
       .single();
 
     if (error) {
-      logger.dbError('UPDATE', 'account', error as Error);
-      
-      // Handle foreign key constraint violation (invalid owner_id)
-      if (error.code === '23503' && error.details?.includes('owner_id')) {
-        res.status(400).json({
-          error: 'Foreign Key Violation',
-          message: 'Invalid owner_id: referenced user does not exist',
-          details: error
-        } as ErrorResponse);
-        return;
-      }
-
-      res.status(500).json({
-        error: 'Database Error',
-        message: 'Failed to update account',
-        details: error
-      } as ErrorResponse);
+      handleDatabaseError('UPDATE', 'account', error, res, req);
       return;
     }
 
@@ -302,13 +263,10 @@ export async function updateAccount(req: Request, res: Response): Promise<void> 
     res.status(200).json(apiAccount);
 
   } catch (error) {
-    logger.error('CONTROLLER', 'Error in updateAccount', error as Error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'An unexpected error occurred while updating the account'
-    } as ErrorResponse);
+    handleInternalError('updating account', error, res, req);
   }
 }
+
 /**
  * Delete an account
  * DELETE /api/accounts/:id
@@ -318,29 +276,16 @@ export async function deleteAccount(req: Request, res: Response): Promise<void> 
     // Validate route parameters
     const paramValidation = AccountIdParamSchema.safeParse(req.params);
     
-    if (!paramValidation.success) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: 'Invalid account ID provided',
-        details: paramValidation.error.errors
-      } as ErrorResponse);
+    if (handleValidationError(paramValidation, res)) {
       return;
     }
 
-    const { id } = paramValidation.data;
+    const { id } = paramValidation.data!;
 
     // Check if account exists first
-    const { data: existingAccount, error: fetchError } = await supabaseAdmin
-      .from('account')
-      .select('id')
-      .eq('id', id)
-      .single();
-
-    if (fetchError || !existingAccount) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: 'Account not found'
-      } as ErrorResponse);
+    const exists = await checkEntityExists('account', id);
+    if (!exists) {
+      handleNotFound('Account', res, req);
       return;
     }
 
@@ -352,84 +297,20 @@ export async function deleteAccount(req: Request, res: Response): Promise<void> 
       .eq('id', id);
 
     if (error) {
-      logger.dbError('DELETE', 'account', error as Error);
-      
-      // Handle foreign key constraint violation (related business exist)
-      if (error.code === '23503') {
-        res.status(409).json({
-          error: 'Constraint Violation',
-          message: 'Cannot delete account: related business exist. Please delete related business first or handle cascading operations.',
-          details: error
-        } as ErrorResponse);
-        return;
-      }
-
-      res.status(500).json({
-        error: 'Database Error',
-        message: 'Failed to delete account',
-        details: error
-      } as ErrorResponse);
+      handleDatabaseError('DELETE', 'account', error, res, req);
       return;
     }
 
     // Return success confirmation
+    const language = getLanguageFromRequest(req);
+    const message = getSuccessMessage('deleted', 'account', language);
+    
     res.status(200).json({
-      message: 'Account deleted successfully',
+      message,
       id: id
     });
 
   } catch (error) {
-    logger.error('CONTROLLER', 'Error in deleteAccount', error as Error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'An unexpected error occurred while deleting the account'
-    } as ErrorResponse);
-  }
-}
-/**
- * Get a single account by ID
- * GET /api/accounts/:id
- */
-export async function getAccountById(req: Request, res: Response): Promise<void> {
-  try {
-    // Validate route parameters
-    const paramValidation = AccountIdParamSchema.safeParse(req.params);
-    
-    if (!paramValidation.success) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: 'Invalid account ID provided',
-        details: paramValidation.error.errors
-      } as ErrorResponse);
-      return;
-    }
-
-    const { id } = paramValidation.data;
-
-    // Fetch account from database
-    const { data: account, error } = await supabaseAdmin
-      .from('account')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error || !account) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: 'Account not found'
-      } as ErrorResponse);
-      return;
-    }
-
-    // Convert database result (snake_case) to API format (camelCase) and return
-    const apiAccount = accountDbToApi(account as AccountDB);
-    res.status(200).json(apiAccount);
-
-  } catch (error) {
-    logger.error('CONTROLLER', 'Error in getAccountById', error as Error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'An unexpected error occurred while fetching the account'
-    } as ErrorResponse);
+    handleInternalError('deleting account', error, res, req);
   }
 }

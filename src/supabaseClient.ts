@@ -68,7 +68,7 @@ export interface Database {
           id: string;
           name: string;
           segment: string;
-          owner_id: string;
+          responsible_id: string;
           status: string;
           type: string;
           pipeline: string;
@@ -85,7 +85,7 @@ export interface Database {
           id?: string;
           name: string;
           segment: string;
-          owner_id: string;
+          responsible_id: string;
           status?: string;
           type?: string;
           pipeline?: string;
@@ -102,7 +102,7 @@ export interface Database {
           id?: string;
           name?: string;
           segment?: string;
-          owner_id?: string;
+          responsible_id?: string;
           status?: string;
           type?: string;
           pipeline?: string;

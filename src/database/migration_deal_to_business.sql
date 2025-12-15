@@ -1,4 +1,4 @@
--- Complete migration script: Rename 'deal' to 'business' and 'profiles' to 'users'
+-- Complete migration script: Rename 'deal' to 'business', 'profiles' to 'users', and 'owner_id' to 'responsible_id'
 -- Execute this script in your Supabase SQL editor or database management tool
 -- This migration handles both existing databases and fresh installations
 
@@ -74,22 +74,45 @@ BEGIN
         END IF;
     END IF;
 
-    -- STEP 3: Update account table references if needed
-    -- Update foreign key constraint to reference users instead of profiles
+    -- STEP 3: Update account table - rename owner_id to responsible_id
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'account') THEN
-        -- Check if the constraint exists and update it
+        -- Check if owner_id column exists and rename it to responsible_id
         IF EXISTS (
-            SELECT 1 FROM information_schema.table_constraints 
-            WHERE constraint_name LIKE '%owner_id%' 
-            AND table_name = 'account'
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'account' AND column_name = 'owner_id'
         ) THEN
-            -- Drop old constraint and create new one (this is safe as data remains intact)
+            -- Drop old constraint first
             ALTER TABLE account DROP CONSTRAINT IF EXISTS account_owner_id_fkey;
-            ALTER TABLE account ADD CONSTRAINT account_owner_id_fkey 
-                FOREIGN KEY (owner_id) REFERENCES users(id);
+            
+            -- Rename column from owner_id to responsible_id
+            ALTER TABLE account RENAME COLUMN owner_id TO responsible_id;
+            
+            -- Create new constraint with new column name
+            ALTER TABLE account ADD CONSTRAINT account_responsible_id_fkey 
+                FOREIGN KEY (responsible_id) REFERENCES users(id);
+            
+            -- Rename index
+            ALTER INDEX IF EXISTS idx_account_owner_id RENAME TO idx_account_responsible_id;
+            
+            RAISE NOTICE 'Renamed owner_id to responsible_id and updated constraints';
+        ELSE
+            -- If responsible_id already exists, just ensure the constraint is correct
+            ALTER TABLE account DROP CONSTRAINT IF EXISTS account_responsible_id_fkey;
+            ALTER TABLE account ADD CONSTRAINT account_responsible_id_fkey 
+                FOREIGN KEY (responsible_id) REFERENCES users(id);
             
             RAISE NOTICE 'Updated account table foreign key to reference users';
         END IF;
+    END IF;
+
+    -- STEP 4: Update business table owner_id references (if business table exists)
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'business') THEN
+        -- Ensure business table references users correctly
+        ALTER TABLE business DROP CONSTRAINT IF EXISTS business_owner_id_fkey;
+        ALTER TABLE business ADD CONSTRAINT business_owner_id_fkey 
+            FOREIGN KEY (owner_id) REFERENCES users(id);
+        
+        RAISE NOTICE 'Updated business table foreign key to reference users';
     END IF;
 END
 $$;
@@ -100,16 +123,26 @@ SELECT
     table_name,
     table_type
 FROM information_schema.tables 
-WHERE table_name IN ('users', 'business');
+WHERE table_name IN ('users', 'business', 'account');
 
 -- Check that indexes were created/renamed successfully
 SELECT 
     indexname,
     tablename
 FROM pg_indexes 
-WHERE tablename IN ('users', 'business');
+WHERE tablename IN ('users', 'business', 'account');
+
+-- Check column names in account table
+SELECT 
+    column_name,
+    data_type
+FROM information_schema.columns 
+WHERE table_name = 'account' 
+ORDER BY ordinal_position;
 
 -- Check data integrity (if tables have data)
 SELECT 'users' as table_name, COUNT(*) as total_records FROM users
 UNION ALL
-SELECT 'business' as table_name, COUNT(*) as total_records FROM business;
+SELECT 'business' as table_name, COUNT(*) as total_records FROM business
+UNION ALL
+SELECT 'account' as table_name, COUNT(*) as total_records FROM account;

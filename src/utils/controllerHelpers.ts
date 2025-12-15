@@ -1,18 +1,57 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { supabaseAdmin } from '../supabaseClient';
 import { ErrorResponse, PaginatedResponse } from '../types';
 import { logger } from './logger';
 import { parseFilter, applyFiltersToQuery } from './filterParser';
+import { 
+  getLanguageFromRequest, 
+  getTranslations, 
+  createValidationMessage,
+  getRelationshipErrorMessage,
+  getNotFoundMessage
+} from './translations';
 
 /**
  * Handle Zod validation errors with consistent error response format
  */
-export function handleValidationError(validationResult: any, res: Response): boolean {
+export function handleValidationError(validationResult: any, res: Response, req?: Request): boolean {
   if (!validationResult.success) {
+    // Get language from request
+    const language = req ? getLanguageFromRequest(req) : 'pt-BR';
+    
+    // Extract the first validation error for a cleaner message
+    const firstError = validationResult.error.errors[0];
+    let message = getTranslations(language).errors.validation.invalid_data;
+    
+    if (firstError) {
+      const field = firstError.path.join('.');
+      const errorCode = firstError.code;
+      const errorMessage = firstError.message;
+      
+      // Determine error type based on Zod error
+      let errorType = 'invalid_data';
+      
+      if (errorCode === 'invalid_type' && errorMessage.includes('Required')) {
+        errorType = 'required';
+      } else if (errorMessage.includes('email')) {
+        errorType = 'email';
+      } else if (errorMessage.includes('uuid')) {
+        errorType = 'uuid';
+      } else if (errorMessage.includes('min')) {
+        errorType = 'min';
+      } else if (errorMessage.includes('max')) {
+        errorType = 'max';
+      }
+      
+      message = createValidationMessage(field, errorType, language, {
+        minimum: firstError.minimum,
+        maximum: firstError.maximum
+      });
+    }
+    
     res.status(400).json({
-      error: 'Validation Error',
-      message: 'Invalid data provided',
-      details: validationResult.error.errors
+      message,
+      status: 400
     } as ErrorResponse);
     return true;
   }
@@ -22,10 +61,13 @@ export function handleValidationError(validationResult: any, res: Response): boo
 /**
  * Handle not found errors with consistent error response format
  */
-export function handleNotFound(entityName: string, res: Response): void {
+export function handleNotFound(entityName: string, res: Response, req?: Request): void {
+  const language = req ? getLanguageFromRequest(req) : 'pt-BR';
+  const message = getNotFoundMessage(entityName, language);
+  
   res.status(404).json({
-    error: 'Not Found',
-    message: `${entityName} not found`
+    message,
+    status: 404
   } as ErrorResponse);
 }
 
@@ -37,26 +79,20 @@ export function handleDatabaseError(
   tableName: string, 
   error: any, 
   res: Response,
-  customMessage?: string
+  req?: Request
 ): void {
   logger.dbError(operation, tableName, error as Error);
   
+  const language = req ? getLanguageFromRequest(req) : 'pt-BR';
+  const t = getTranslations(language);
+  
   // Handle foreign key constraint violations
   if (error.code === '23503') {
-    let message = 'Foreign key constraint violation';
-    
-    if (error.details?.includes('owner_id')) {
-      message = 'Invalid owner_id: referenced user does not exist';
-    } else if (error.details?.includes('account_id')) {
-      message = 'Invalid account_id: referenced account does not exist';
-    } else if (error.details?.includes('manager_id')) {
-      message = 'Invalid manager_id: referenced user does not exist';
-    }
+    let message = getRelationshipErrorMessage(error.details || '', language);
     
     res.status(400).json({
-      error: 'Foreign Key Violation',
       message,
-      details: error
+      status: 400
     } as ErrorResponse);
     return;
   }
@@ -64,18 +100,34 @@ export function handleDatabaseError(
   // Handle constraint violations for deletion
   if (error.code === '23503' && operation === 'DELETE') {
     res.status(409).json({
-      error: 'Constraint Violation',
-      message: `Cannot delete ${tableName.slice(0, -1)}: related records exist. Please delete related records first or handle cascading operations.`,
-      details: error
+      message: t.errors.constraints.cannot_delete_with_relations,
+      status: 409
+    } as ErrorResponse);
+    return;
+  }
+  
+  // Handle unique constraint violations
+  if (error.code === '23505') {
+    res.status(400).json({
+      message: t.errors.constraints.duplicate_record,
+      status: 400
+    } as ErrorResponse);
+    return;
+  }
+  
+  // Handle check constraint violations
+  if (error.code === '23514') {
+    res.status(400).json({
+      message: t.errors.constraints.data_constraint_violation,
+      status: 400
     } as ErrorResponse);
     return;
   }
   
   // Generic database error
   res.status(500).json({
-    error: 'Database Error',
-    message: customMessage || `Failed to ${operation.toLowerCase()} ${tableName.slice(0, -1)}`,
-    details: error
+    message: t.errors.server.internal_error,
+    status: 500
   } as ErrorResponse);
 }
 
@@ -85,12 +137,34 @@ export function handleDatabaseError(
 export function handleInternalError(
   operation: string, 
   error: any, 
-  res: Response
+  res: Response,
+  req?: Request
 ): void {
   logger.error('CONTROLLER', `Error in ${operation}`, error as Error);
+  
+  const language = req ? getLanguageFromRequest(req) : 'pt-BR';
+  const t = getTranslations(language);
+  
+  const message = error instanceof Error ? error.message : t.errors.server.internal_error;
+  
   res.status(500).json({
-    error: 'Internal Server Error',
-    message: `An unexpected error occurred while ${operation}`
+    message,
+    status: 500
+  } as ErrorResponse);
+}
+
+/**
+ * Handle filter parsing errors
+ */
+export function handleFilterError(filterError: any, res: Response, req?: Request): void {
+  const language = req ? getLanguageFromRequest(req) : 'pt-BR';
+  const t = getTranslations(language);
+  
+  const message = filterError instanceof Error ? filterError.message : t.errors.filter.invalid_syntax;
+  
+  res.status(400).json({
+    message,
+    status: 400
   } as ErrorResponse);
 }
 
@@ -100,76 +174,6 @@ export function handleInternalError(
 export function buildPaginatedQuery(query: any, page: number = 1, size: number = 10): any {
   const offset = (page - 1) * size;
   return query.range(offset, offset + size - 1);
-}
-
-/**
- * Build filtered query with dynamic filter support and legacy filter fallback
- */
-export function buildFilteredQuery(
-  query: any, 
-  queryParams: any,
-  legacyFilters?: { [key: string]: string }
-): any {
-  try {
-    // Apply dynamic filter if provided
-    if (queryParams.filter) {
-      // Safely decode URL-encoded filter string
-      let decodedFilter = queryParams.filter;
-      
-      // Try multiple decoding attempts for different encoding levels
-      try {
-        // First attempt - single decode
-        const firstDecode = decodeURIComponent(queryParams.filter);
-        
-        // Check if it still contains encoded characters
-        if (firstDecode.includes('%')) {
-          try {
-            // Second attempt - double decode
-            decodedFilter = decodeURIComponent(firstDecode);
-          } catch {
-            decodedFilter = firstDecode;
-          }
-        } else {
-          decodedFilter = firstDecode;
-        }
-      } catch (decodeError) {
-        // If all decoding fails, use the original string
-        logger.warn('CONTROLLER', 'Failed to decode filter, using original', { 
-          filter: queryParams.filter,
-          error: (decodeError as Error).message
-        });
-      }
-      
-      logger.debug('CONTROLLER', 'Processing filter', { 
-        original: queryParams.filter, 
-        decoded: decodedFilter 
-      });
-      
-      const parsedFilter = parseFilter(decodedFilter);
-      logger.filterParsing(decodedFilter, true);
-      query = applyFiltersToQuery(query, parsedFilter);
-    } else if (legacyFilters) {
-      // Apply legacy filters for backward compatibility
-      Object.entries(legacyFilters).forEach(([key, value]) => {
-        if (queryParams[key]) {
-          query = query.eq(value, queryParams[key]);
-        }
-      });
-    }
-  } catch (filterError) {
-    let decodedFilter = '';
-    if (queryParams.filter) {
-      try {
-        decodedFilter = decodeURIComponent(queryParams.filter);
-      } catch {
-        decodedFilter = queryParams.filter;
-      }
-    }
-    logger.filterParsing(decodedFilter, false, filterError as Error);
-    throw new Error(filterError instanceof Error ? filterError.message : 'Invalid filter syntax');
-  }
-  
-  return query;
 }
 
 /**
@@ -216,249 +220,4 @@ export async function checkEntityExists(
     .single();
     
   return !error && !!data;
-}
-
-/**
- * Generic entity creation with validation and error handling
- */
-export async function createEntity<T>(
-  tableName: string,
-  entityData: any,
-  validationSchema: any,
-  requestBody: any,
-  res: Response,
-  convertApiToDb: (data: any) => any,
-  convertDbToApi: (data: any) => T,
-  defaultValues?: any
-): Promise<T | null> {
-  try {
-    // Validate request body
-    const validationResult = validationSchema.safeParse(requestBody);
-    if (handleValidationError(validationResult, res)) {
-      return null;
-    }
-
-    // Convert API data to database format and add defaults
-    const dbData = convertApiToDb(validationResult.data);
-    const dataToInsert = {
-      ...dbData,
-      ...defaultValues
-    };
-
-    // Insert into database
-    const { data: createdEntity, error } = await supabaseAdmin
-      .from(tableName)
-      .insert(dataToInsert)
-      .select()
-      .single();
-
-    if (error) {
-      handleDatabaseError('INSERT', tableName, error, res);
-      return null;
-    }
-
-    // Convert and return result
-    const apiEntity = convertDbToApi(createdEntity);
-    res.status(201).json(apiEntity);
-    return apiEntity;
-
-  } catch (error) {
-    handleInternalError(`creating ${tableName.slice(0, -1)}`, error, res);
-    return null;
-  }
-}
-
-/**
- * Generic entity update with validation and error handling
- */
-export async function updateEntity<T>(
-  tableName: string,
-  id: string,
-  validationSchema: any,
-  requestBody: any,
-  res: Response,
-  convertApiToDb: (data: any) => any,
-  convertDbToApi: (data: any) => T,
-  additionalUpdateData?: any
-): Promise<T | null> {
-  try {
-    // Validate request body
-    const validationResult = validationSchema.safeParse(requestBody);
-    if (handleValidationError(validationResult, res)) {
-      return null;
-    }
-
-    // Check if entity exists
-    const exists = await checkEntityExists(tableName, id);
-    if (!exists) {
-      handleNotFound(tableName.slice(0, -1), res);
-      return null;
-    }
-
-    // Convert API data to database format and add additional data
-    const dbUpdateData = convertApiToDb(validationResult.data);
-    const updateData = {
-      ...dbUpdateData,
-      ...additionalUpdateData
-    };
-
-    // Update in database
-    const { data: updatedEntity, error } = await supabaseAdmin
-      .from(tableName)
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) {
-      handleDatabaseError('UPDATE', tableName, error, res);
-      return null;
-    }
-
-    // Convert and return result
-    const apiEntity = convertDbToApi(updatedEntity);
-    res.status(200).json(apiEntity);
-    return apiEntity;
-
-  } catch (error) {
-    handleInternalError(`updating ${tableName.slice(0, -1)}`, error, res);
-    return null;
-  }
-}
-
-/**
- * Generic entity deletion with error handling
- */
-export async function deleteEntity(
-  tableName: string,
-  id: string,
-  res: Response
-): Promise<boolean> {
-  try {
-    // Check if entity exists
-    const exists = await checkEntityExists(tableName, id);
-    if (!exists) {
-      handleNotFound(tableName.slice(0, -1), res);
-      return false;
-    }
-
-    // Delete from database
-    const { error } = await supabaseAdmin
-      .from(tableName)
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      handleDatabaseError('DELETE', tableName, error, res);
-      return false;
-    }
-
-    // Return success confirmation
-    res.status(200).json({
-      message: `${tableName.slice(0, -1)} deleted successfully`,
-      id: id
-    });
-    return true;
-
-  } catch (error) {
-    handleInternalError(`deleting ${tableName.slice(0, -1)}`, error, res);
-    return false;
-  }
-}
-
-/**
- * Generic entity retrieval by ID with error handling
- */
-export async function getEntityById<T>(
-  tableName: string,
-  id: string,
-  res: Response,
-  convertDbToApi: (data: any) => T
-): Promise<T | null> {
-  try {
-    // Fetch entity from database
-    const { data: entity, error } = await supabaseAdmin
-      .from(tableName)
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error || !entity) {
-      handleNotFound(tableName.slice(0, -1), res);
-      return null;
-    }
-
-    // Convert and return result
-    const apiEntity = convertDbToApi(entity);
-    res.status(200).json(apiEntity);
-    return apiEntity;
-
-  } catch (error) {
-    handleInternalError(`fetching ${tableName.slice(0, -1)}`, error, res);
-    return null;
-  }
-}
-
-/**
- * Generic entity listing with filtering, searching, and pagination
- */
-export async function getEntities<T>(
-  tableName: string,
-  queryParams: any,
-  res: Response,
-  convertDbToApi: (data: any) => T,
-  searchFields: string[] = [],
-  legacyFilters?: { [key: string]: string }
-): Promise<PaginatedResponse<T> | null> {
-  try {
-    // Set default pagination values
-    const page = queryParams.page || 1;
-    const size = queryParams.size || 10;
-
-    // Build base query
-    let query = supabaseAdmin.from(tableName).select('*', { count: 'exact' });
-
-    // Apply search if provided
-    if (queryParams.search && searchFields.length > 0) {
-      query = buildSearchQuery(query, queryParams.search, searchFields);
-    }
-
-    // Apply filters
-    query = buildFilteredQuery(query, queryParams, legacyFilters);
-
-    // Apply pagination
-    query = buildPaginatedQuery(query, page, size);
-
-    // Order by created_at descending
-    query = query.order('created_at', { ascending: false });
-
-    // Execute query
-    const { data: entities, error, count } = await query;
-
-    if (error) {
-      handleDatabaseError('SELECT', tableName, error, res);
-      return null;
-    }
-
-    // Convert database results to API format
-    const apiEntities = (entities || []).map(convertDbToApi);
-    
-    // Create and return paginated response
-    const response = createPaginatedResponse(apiEntities, count || 0, page, size);
-    res.status(200).json(response);
-    return response;
-
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('Invalid filter syntax')) {
-      res.status(400).json({
-        error: 'Invalid Filter',
-        message: error.message,
-        details: { filter: queryParams.filter }
-      } as ErrorResponse);
-      return null;
-    }
-    
-    handleInternalError(`fetching ${tableName}`, error, res);
-    return null;
-  }
 }

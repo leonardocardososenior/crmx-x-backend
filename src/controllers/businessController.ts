@@ -15,11 +15,12 @@ import {
   handleNotFound, 
   handleDatabaseError, 
   handleInternalError,
+  handleFilterError,
   buildPaginatedQuery,
-  buildSearchQuery,
   createPaginatedResponse,
   checkEntityExists
 } from '../utils/controllerHelpers';
+import { getLanguageFromRequest, getSuccessMessage } from '../utils/translations';
 
 /**
  * Create a new business
@@ -31,7 +32,7 @@ export async function createBusiness(req: Request, res: Response): Promise<void>
     const validationResult = CreateBusinessSchema.safeParse(req.body);
     
     if (!validationResult.success) {
-      handleValidationError(validationResult, res);
+      handleValidationError(validationResult, res, req);
       return;
     }
 
@@ -52,7 +53,7 @@ export async function createBusiness(req: Request, res: Response): Promise<void>
       .single();
 
     if (error) {
-      handleDatabaseError('INSERT', 'business', error, res);
+      handleDatabaseError('INSERT', 'business', error, res, req);
       return;
     }
 
@@ -61,7 +62,7 @@ export async function createBusiness(req: Request, res: Response): Promise<void>
     res.status(201).json(apiBusiness);
 
   } catch (error) {
-    handleInternalError('creating business', error, res);
+    handleInternalError('creating business', error, res, req);
   }
 }
 
@@ -75,7 +76,7 @@ export async function getBusiness(req: Request, res: Response): Promise<void> {
     const validationResult = BusinessQueryParamsSchema.safeParse(req.query);
     
     if (!validationResult.success) {
-      handleValidationError(validationResult, res);
+      handleValidationError(validationResult, res, req);
       return;
     }
 
@@ -114,15 +115,7 @@ export async function getBusiness(req: Request, res: Response): Promise<void> {
         const parsedFilter = parseFilter(decodedFilter);
         query = applyFiltersToQuery(query, parsedFilter);
       } catch (filterError) {
-        handleValidationError({
-          success: false,
-          error: {
-            errors: [{
-              message: filterError instanceof Error ? filterError.message : 'Invalid filter syntax',
-              path: ['filter']
-            }]
-          }
-        }, res);
+        handleFilterError(filterError, res, req);
         return;
       }
     }
@@ -137,7 +130,7 @@ export async function getBusiness(req: Request, res: Response): Promise<void> {
     const { data: business, error, count } = await query;
 
     if (error) {
-      handleDatabaseError('SELECT', 'business', error, res);
+      handleDatabaseError('SELECT', 'business', error, res, req);
       return;
     }
 
@@ -149,7 +142,7 @@ export async function getBusiness(req: Request, res: Response): Promise<void> {
     res.status(200).json(response);
 
   } catch (error) {
-    handleInternalError('fetching business', error, res);
+    handleInternalError('fetching business', error, res, req);
   }
 }
 
@@ -177,7 +170,7 @@ export async function getBusinessById(req: Request, res: Response): Promise<void
       .single();
 
     if (error || !business) {
-      handleNotFound('Business', res);
+      handleNotFound('Business', res, req);
       return;
     }
 
@@ -186,7 +179,7 @@ export async function getBusinessById(req: Request, res: Response): Promise<void
     res.status(200).json(apiBusiness);
 
   } catch (error) {
-    handleInternalError('fetching business', error, res);
+    handleInternalError('fetching business', error, res, req);
   }
 }
 /**
@@ -209,7 +202,7 @@ export async function updateBusiness(req: Request, res: Response): Promise<void>
     const validationResult = UpdateBusinessSchema.safeParse(req.body);
     
     if (!validationResult.success) {
-      handleValidationError(validationResult, res);
+      handleValidationError(validationResult, res, req);
       return;
     }
 
@@ -218,7 +211,7 @@ export async function updateBusiness(req: Request, res: Response): Promise<void>
     // Check if business exists first
     const exists = await checkEntityExists('business', id);
     if (!exists) {
-      handleNotFound('Business', res);
+      handleNotFound('Business', res, req);
       return;
     }
 
@@ -234,7 +227,7 @@ export async function updateBusiness(req: Request, res: Response): Promise<void>
       .single();
 
     if (error) {
-      handleDatabaseError('UPDATE', 'business', error, res);
+      handleDatabaseError('UPDATE', 'business', error, res, req);
       return;
     }
 
@@ -243,7 +236,7 @@ export async function updateBusiness(req: Request, res: Response): Promise<void>
     res.status(200).json(apiBusiness);
 
   } catch (error) {
-    handleInternalError('updating business', error, res);
+    handleInternalError('updating business', error, res, req);
   }
 }
 /**
@@ -265,7 +258,7 @@ export async function deleteBusiness(req: Request, res: Response): Promise<void>
     // Check if business exists first
     const exists = await checkEntityExists('business', id);
     if (!exists) {
-      handleNotFound('Business', res);
+      handleNotFound('Business', res, req);
       return;
     }
 
@@ -276,17 +269,20 @@ export async function deleteBusiness(req: Request, res: Response): Promise<void>
       .eq('id', id);
 
     if (error) {
-      handleDatabaseError('DELETE', 'business', error, res);
+      handleDatabaseError('DELETE', 'business', error, res, req);
       return;
     }
 
     // Return success confirmation
+    const language = getLanguageFromRequest(req);
+    const message = getSuccessMessage('deleted', 'business', language);
+    
     res.status(200).json({
-      message: 'Business deleted successfully',
+      message,
       id: id
     });
 
   } catch (error) {
-    handleInternalError('deleting business', error, res);
+    handleInternalError('deleting business', error, res, req);
   }
 }

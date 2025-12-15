@@ -44,7 +44,7 @@ const SocialMediaSchema = z.string().url().optional().or(z.literal('')).or(z.nul
 export const CreateAccountSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   segment: z.string().min(1, 'Segment is required'),
-  ownerId: UUIDSchema,
+  responsibleId: UUIDSchema,
   status: AccountStatusSchema.optional(),
   type: AccountTypeSchema.optional(),
   pipeline: z.string().optional(),
@@ -60,7 +60,7 @@ export const CreateAccountSchema = z.object({
 export const UpdateAccountSchema = z.object({
   name: z.string().min(1, 'Name cannot be empty').optional(),
   segment: z.string().min(1, 'Segment cannot be empty').optional(),
-  ownerId: UUIDSchema.optional(),
+  responsibleId: UUIDSchema.optional(),
   status: AccountStatusSchema.optional(),
   type: AccountTypeSchema.optional(),
   pipeline: z.string().optional(),

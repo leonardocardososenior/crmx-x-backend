@@ -18,6 +18,7 @@ const ALLOWED_FIELDS = {
   'whatsapp': 'whatsapp',
   'created_at': 'created_at',
   'last_interaction': 'last_interaction',
+  'responsible_id': 'responsible_id',
   
   // Business fields (snake_case for database)
   'title': 'title',
@@ -37,7 +38,13 @@ const ALLOWED_FIELDS = {
   'owner.id': 'users.id',
   'owner.name': 'users.name',
   'owner.email': 'users.email',
-  'owner.role': 'users.role'
+  'owner.role': 'users.role',
+  
+  // Responsible relationship fields (will be handled with joins)
+  'responsible.id': 'users.id',
+  'responsible.name': 'users.name',
+  'responsible.email': 'users.email',
+  'responsible.role': 'users.role'
 } as const;
 
 // Allowed operators
@@ -90,11 +97,13 @@ function validateFieldValue(field: string, value: string): boolean {
       return isValidAccountType(value);
     case 'id':
     case 'owner.id':
+    case 'responsible.id':
       // UUID validation
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
       return uuidRegex.test(value);
     case 'email':
     case 'owner.email':
+    case 'responsible.email':
       // Basic email validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       return emailRegex.test(value);
@@ -220,8 +229,8 @@ export function parseFilter(filterString: string): ParsedFilter {
       value = sanitized;
     }
 
-    // Check if this is an owner filter
-    if (fieldName.startsWith('owner.')) {
+    // Check if this is an owner or responsible filter
+    if (fieldName.startsWith('owner.') || fieldName.startsWith('responsible.')) {
       hasOwnerFilter = true;
     }
 
@@ -251,7 +260,7 @@ export function applyFiltersToQuery(query: any, parsedFilter: ParsedFilter): any
   if (parsedFilter.hasOwnerFilter) {
     query = query.select(`
       *,
-      users!owner_id (
+      users!responsible_id (
         id,
         name,
         email,
@@ -264,9 +273,9 @@ export function applyFiltersToQuery(query: any, parsedFilter: ParsedFilter): any
   for (const condition of parsedFilter.conditions) {
     const dbField = ALLOWED_FIELDS[condition.field as keyof typeof ALLOWED_FIELDS];
 
-    if (condition.field.startsWith('owner.')) {
-      // Handle owner relationship filters - skip for now as they're complex
-      logger.warn('FILTER', 'Owner filters not yet implemented', { field: condition.field });
+    if (condition.field.startsWith('owner.') || condition.field.startsWith('responsible.')) {
+      // Handle owner/responsible relationship filters - skip for now as they're complex
+      logger.warn('FILTER', 'Owner/responsible filters not yet implemented', { field: condition.field });
       continue;
     }
 

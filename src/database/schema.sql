@@ -20,7 +20,7 @@ CREATE TABLE account
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name             TEXT NOT NULL,
     segment          TEXT NOT NULL,
-    owner_id         UUID NOT NULL REFERENCES users (id),
+    responsible_id   UUID NOT NULL REFERENCES users (id),
     status           TEXT NOT NULL,
     type             TEXT NOT NULL,
     pipeline         TEXT             DEFAULT 'Standard',
@@ -50,7 +50,7 @@ CREATE TABLE business
 );
 
 -- Create indexes for better query performance
-CREATE INDEX idx_account_owner_id ON account (owner_id);
+CREATE INDEX idx_account_responsible_id ON account (responsible_id);
 CREATE INDEX idx_account_status ON account (status);
 CREATE INDEX idx_account_type ON account (type);
 CREATE INDEX idx_account_name ON account (name);
