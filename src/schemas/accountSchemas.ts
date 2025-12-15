@@ -56,7 +56,7 @@ export const CreateAccountSchema = z.object({
   whatsapp: PhoneSchema
 });
 
-// Update Account Schema - for PATCH /api/accounts/:id (all fields optional, camelCase)
+// Update Account Schema - for PUT /api/accounts/:id (all fields optional, camelCase)
 export const UpdateAccountSchema = z.object({
   name: z.string().min(1, 'Name cannot be empty').optional(),
   segment: z.string().min(1, 'Segment cannot be empty').optional(),
@@ -77,7 +77,10 @@ export const QueryParamsSchema = z.object({
   // Search parameters
   search: z.string().optional(),
   
-  // Filter parameters
+  // Dynamic filter parameter (SQL-like syntax)
+  filter: z.string().optional(),
+  
+  // Legacy filter parameters (deprecated but maintained for compatibility)
   status: AccountStatusSchema.optional(),
   type: AccountTypeSchema.optional(),
   ownerId: UUIDSchema.optional(),
@@ -86,8 +89,8 @@ export const QueryParamsSchema = z.object({
   page: z.string().regex(/^\d+$/).transform(Number).refine(val => val > 0, {
     message: 'Page must be a positive integer'
   }).optional(),
-  limit: z.string().regex(/^\d+$/).transform(Number).refine(val => val > 0 && val <= 100, {
-    message: 'Limit must be a positive integer between 1 and 100'
+  size: z.string().regex(/^\d+$/).transform(Number).refine(val => val > 0 && val <= 100, {
+    message: 'Size must be a positive integer between 1 and 100'
   }).optional()
 });
 
@@ -117,7 +120,7 @@ export const CreateDealSchema = z.object({
   closingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Closing date must be in YYYY-MM-DD format').optional()
 });
 
-// Update Deal Schema - for PATCH /api/deals/:id (all fields optional, camelCase)
+// Update Deal Schema - for PUT /api/deals/:id (all fields optional, camelCase)
 export const UpdateDealSchema = z.object({
   title: z.string().min(1, 'Title cannot be empty').optional(),
   accountId: UUIDSchema.optional(),

@@ -23,8 +23,8 @@ router.get('/', getAccounts);
 // GET /api/accounts/:id - Get single account by ID
 router.get('/:id', getAccountById);
 
-// PATCH /api/accounts/:id - Update existing account
-router.patch('/:id', updateAccount);
+// PUT /api/accounts/:id - Update existing account
+router.put('/:id', updateAccount);
 
 // DELETE /api/accounts/:id - Delete account
 router.delete('/:id', deleteAccount);

@@ -10,6 +10,7 @@ import {
   errorHandler, 
   notFoundHandler 
 } from './middleware/errorHandler';
+import { logger } from './utils/logger';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -43,20 +44,20 @@ app.use(errorHandler);
 
 // Graceful shutdown handling
 process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
+  logger.info('SERVER', 'SIGTERM received, shutting down gracefully');
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully');
+  logger.info('SERVER', 'SIGINT received, shutting down gracefully');
   process.exit(0);
 });
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 CRM Accounts Module server running on port ${PORT}`);
-  console.log(`📊 Health check available at http://localhost:${PORT}/health`);
-  console.log(`🔗 API endpoints available at http://localhost:${PORT}/api/accounts`);
+  logger.serverStart(Number(PORT));
+  logger.info('SERVER', `Health check available at http://localhost:${PORT}/health`);
+  logger.info('SERVER', `API endpoints available at http://localhost:${PORT}/api/accounts`);
 });
 
 export default app;

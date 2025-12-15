@@ -69,7 +69,7 @@ src/
 ### Contas
 - `POST /api/accounts` - Criar nova conta
 - `GET /api/accounts` - Listar contas (com filtros e paginação)
-- `PATCH /api/accounts/:id` - Atualizar conta
+- `PUT /api/accounts/:id` - Atualizar conta
 - `DELETE /api/accounts/:id` - Eliminar conta
 
 ### Health Check

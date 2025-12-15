@@ -217,10 +217,11 @@ export interface UpdateDealRequest {
 
 export interface AccountQueryParams {
   search?: string;
+  filter?: string;
   status?: string;
   type?: string;
   page?: number;
-  limit?: number;
+  size?: number;
 }
 
 // Default value helpers

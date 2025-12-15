@@ -9,7 +9,9 @@ import {
   UpdateAccountInput,
   QueryParamsInput 
 } from '../schemas/accountSchemas';
-import { Account, AccountDB, PaginatedResponse, ErrorResponse, accountDbToApi, accountApiToDb, AccountStatuses, AccountTypes, UserRoles } from '../types';
+import { Account, AccountDB, PaginatedResponse, ErrorResponse, accountDbToApi, accountApiToDb, AccountStatuses, AccountTypes } from '../types';
+import { parseFilter, applyFiltersToQuery } from '../utils/filterParser';
+import { logger } from '../utils/logger';
 
 /**
  * Create a new account
@@ -49,7 +51,7 @@ export async function createAccount(req: Request, res: Response): Promise<void> 
       .single();
 
     if (error) {
-      console.error('Database error creating account:', error);
+      logger.dbError('INSERT', 'account', error as Error);
       
       // Handle foreign key constraint violation (invalid owner_id)
       if (error.code === '23503' && error.details?.includes('owner_id')) {
@@ -74,7 +76,7 @@ export async function createAccount(req: Request, res: Response): Promise<void> 
     res.status(201).json(apiAccount);
 
   } catch (error) {
-    console.error('Error in createAccount:', error);
+    logger.error('CONTROLLER', 'Error in createAccount', error as Error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An unexpected error occurred while creating the account'
@@ -104,34 +106,93 @@ export async function getAccounts(req: Request, res: Response): Promise<void> {
 
     // Set default pagination values
     const page = queryParams.page || 1;
-    const limit = queryParams.limit || 10;
-    const offset = (page - 1) * limit;
+    const size = queryParams.size || 10;
+    const offset = (page - 1) * size;
 
-    // Build query
+    // Build base query
     let query = supabaseAdmin.from('account').select('*', { count: 'exact' });
 
-    // Apply search filter (name or segment)
-    if (queryParams.search) {
-      query = query.or(`name.ilike.%${queryParams.search}%,segment.ilike.%${queryParams.search}%`);
-    }
+    try {
+      // Apply dynamic filter if provided
+      if (queryParams.filter) {
+        // Safely decode URL-encoded filter string
+        let decodedFilter = queryParams.filter;
+        
+        // Try multiple decoding attempts for different encoding levels
+        try {
+          // First attempt - single decode
+          const firstDecode = decodeURIComponent(queryParams.filter);
+          
+          // Check if it still contains encoded characters
+          if (firstDecode.includes('%')) {
+            try {
+              // Second attempt - double decode
+              decodedFilter = decodeURIComponent(firstDecode);
+            } catch {
+              decodedFilter = firstDecode;
+            }
+          } else {
+            decodedFilter = firstDecode;
+          }
+        } catch (decodeError) {
+          // If all decoding fails, use the original string
+          logger.warn('CONTROLLER', 'Failed to decode filter, using original', { 
+            filter: queryParams.filter,
+            error: (decodeError as Error).message
+          });
+        }
+        
+        logger.debug('CONTROLLER', 'Processing filter', { 
+          original: queryParams.filter, 
+          decoded: decodedFilter 
+        });
+        
+        const parsedFilter = parseFilter(decodedFilter);
+        logger.filterParsing(decodedFilter, true);
+        query = applyFiltersToQuery(query, parsedFilter);
+      } else {
+        // Apply legacy filters for backward compatibility
+        
+        // Apply search filter (name or segment)
+        if (queryParams.search) {
+          query = query.or(`name.ilike.%${queryParams.search}%,segment.ilike.%${queryParams.search}%`);
+        }
 
-    // Apply status filter
-    if (queryParams.status) {
-      query = query.eq('status', queryParams.status);
-    }
+        // Apply status filter
+        if (queryParams.status) {
+          query = query.eq('status', queryParams.status);
+        }
 
-    // Apply type filter
-    if (queryParams.type) {
-      query = query.eq('type', queryParams.type);
-    }
+        // Apply type filter
+        if (queryParams.type) {
+          query = query.eq('type', queryParams.type);
+        }
 
-    // Apply ownerId filter
-    if (queryParams.ownerId) {
-      query = query.eq('owner_id', queryParams.ownerId);
+        // Apply ownerId filter
+        if (queryParams.ownerId) {
+          query = query.eq('owner_id', queryParams.ownerId);
+        }
+      }
+    } catch (filterError) {
+      let decodedFilter = '';
+      if (queryParams.filter) {
+        try {
+          decodedFilter = decodeURIComponent(queryParams.filter);
+        } catch {
+          decodedFilter = queryParams.filter;
+        }
+      }
+      logger.filterParsing(decodedFilter, false, filterError as Error);
+      res.status(400).json({
+        error: 'Invalid Filter',
+        message: filterError instanceof Error ? filterError.message : 'Invalid filter syntax',
+        details: { filter: queryParams.filter }
+      } as ErrorResponse);
+      return;
     }
 
     // Apply pagination
-    query = query.range(offset, offset + limit - 1);
+    query = query.range(offset, offset + size - 1);
 
     // Order by created_at descending
     query = query.order('created_at', { ascending: false });
@@ -140,7 +201,7 @@ export async function getAccounts(req: Request, res: Response): Promise<void> {
     const { data: accounts, error, count } = await query;
 
     if (error) {
-      console.error('Database error fetching accounts:', error);
+      logger.dbError('SELECT', 'account', error as Error);
       res.status(500).json({
         error: 'Database Error',
         message: 'Failed to fetch accounts',
@@ -151,7 +212,7 @@ export async function getAccounts(req: Request, res: Response): Promise<void> {
 
     // Calculate pagination metadata
     const totalElements = count || 0;
-    const totalPages = Math.ceil(totalElements / limit);
+    const totalPages = Math.ceil(totalElements / size);
 
     // Convert database results (snake_case) to API format (camelCase)
     const apiAccounts = (accounts as AccountDB[]).map(accountDbToApi);
@@ -166,7 +227,7 @@ export async function getAccounts(req: Request, res: Response): Promise<void> {
     res.status(200).json(response);
 
   } catch (error) {
-    console.error('Error in getAccounts:', error);
+    logger.error('CONTROLLER', 'Error in getAccounts', error as Error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An unexpected error occurred while fetching accounts'
@@ -175,7 +236,7 @@ export async function getAccounts(req: Request, res: Response): Promise<void> {
 }
 /**
  * Update an existing account
- * PATCH /api/accounts/:id
+ * PUT /api/accounts/:id
  */
 export async function updateAccount(req: Request, res: Response): Promise<void> {
   try {
@@ -238,7 +299,7 @@ export async function updateAccount(req: Request, res: Response): Promise<void> 
       .single();
 
     if (error) {
-      console.error('Database error updating account:', error);
+      logger.dbError('UPDATE', 'account', error as Error);
       
       // Handle foreign key constraint violation (invalid owner_id)
       if (error.code === '23503' && error.details?.includes('owner_id')) {
@@ -263,7 +324,7 @@ export async function updateAccount(req: Request, res: Response): Promise<void> 
     res.status(200).json(apiAccount);
 
   } catch (error) {
-    console.error('Error in updateAccount:', error);
+    logger.error('CONTROLLER', 'Error in updateAccount', error as Error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An unexpected error occurred while updating the account'
@@ -313,7 +374,7 @@ export async function deleteAccount(req: Request, res: Response): Promise<void> 
       .eq('id', id);
 
     if (error) {
-      console.error('Database error deleting account:', error);
+      logger.dbError('DELETE', 'account', error as Error);
       
       // Handle foreign key constraint violation (related deals exist)
       if (error.code === '23503') {
@@ -340,7 +401,7 @@ export async function deleteAccount(req: Request, res: Response): Promise<void> 
     });
 
   } catch (error) {
-    console.error('Error in deleteAccount:', error);
+    logger.error('CONTROLLER', 'Error in deleteAccount', error as Error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An unexpected error occurred while deleting the account'
@@ -387,7 +448,7 @@ export async function getAccountById(req: Request, res: Response): Promise<void>
     res.status(200).json(apiAccount);
 
   } catch (error) {
-    console.error('Error in getAccountById:', error);
+    logger.error('CONTROLLER', 'Error in getAccountById', error as Error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An unexpected error occurred while fetching the account'
