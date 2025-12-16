@@ -37,16 +37,16 @@ CREATE TABLE account
 -- Create business table with foreign key relationships (requirements 6.4, 6.5)
 CREATE TABLE business
 (
-    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    title        TEXT    NOT NULL,
-    account_id   UUID    NOT NULL REFERENCES account (id),
-    value        NUMERIC NOT NULL,
-    currency     TEXT    NOT NULL,
-    stage        TEXT    NOT NULL,
-    probability  INTEGER,
-    owner_id     UUID REFERENCES users (id),
-    closing_date DATE,
-    created_at   TIMESTAMPTZ      DEFAULT NOW()
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title          TEXT    NOT NULL,
+    account_id     UUID    NOT NULL REFERENCES account (id),
+    value          NUMERIC NOT NULL,
+    currency       TEXT    NOT NULL,
+    stage          TEXT    NOT NULL,
+    probability    INTEGER,
+    responsible_id UUID REFERENCES users (id),
+    closing_date   DATE,
+    created_at     TIMESTAMPTZ      DEFAULT NOW()
 );
 
 -- Create item table for products and services (requirements 6.1, 6.2, 6.3, 6.5)
@@ -65,42 +65,44 @@ CREATE TABLE item
 CREATE TABLE account_timeline
 (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    account_id  UUID NOT NULL REFERENCES account (id) ON DELETE CASCADE,
-    type        TEXT NOT NULL,    -- NOTE, CALL, EMAIL, MEETING, SYSTEM (validated in application)
-    title       TEXT NOT NULL,
-    description TEXT,             -- Optional description
+    account_id  UUID        NOT NULL REFERENCES account (id) ON DELETE CASCADE,
+    type        TEXT        NOT NULL, -- NOTE, CALL, EMAIL, MEETING, SYSTEM (validated in application)
+    title       TEXT        NOT NULL,
+    description TEXT,                 -- Optional description
     date        TIMESTAMPTZ NOT NULL,
-    created_by  UUID NOT NULL REFERENCES users (id),
+    responsible_id  UUID        NOT NULL REFERENCES users (id),
     created_at  TIMESTAMPTZ      DEFAULT NOW()
 );
 
 -- Create business_proposal table with all required fields and constraints
-CREATE TABLE business_proposal (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    business_id UUID NOT NULL REFERENCES business(id),
-    responsible_id UUID NOT NULL REFERENCES users(id),
-    title TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'Rascunho',
-    date TIMESTAMPTZ NOT NULL,
-    value NUMERIC NOT NULL,
-    content TEXT,
-    theme_color TEXT,
+CREATE TABLE business_proposal
+(
+    id                   UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    business_id          UUID        NOT NULL REFERENCES business (id),
+    responsible_id       UUID        NOT NULL REFERENCES users (id),
+    title                TEXT        NOT NULL,
+    status               TEXT        NOT NULL DEFAULT 'Rascunho',
+    date                 TIMESTAMPTZ NOT NULL,
+    value                NUMERIC     NOT NULL,
+    content              TEXT,
+    theme_color          TEXT,
     terms_and_conditions TEXT,
-    show_unit_prices BOOLEAN DEFAULT true,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    show_unit_prices     BOOLEAN              DEFAULT true,
+    created_at           TIMESTAMPTZ          DEFAULT NOW()
 );
 
 -- Create business_proposal_item table with foreign key relationships
-CREATE TABLE business_proposal_item (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    proposal_id UUID NOT NULL REFERENCES business_proposal(id) ON DELETE CASCADE,
-    item_id UUID NOT NULL REFERENCES item(id),
-    name TEXT NOT NULL,
-    quantity NUMERIC NOT NULL,
-    unit_price NUMERIC NOT NULL,
-    discount NUMERIC DEFAULT 0,
-    total NUMERIC NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+CREATE TABLE business_proposal_item
+(
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    proposal_id UUID    NOT NULL REFERENCES business_proposal (id) ON DELETE CASCADE,
+    item_id     UUID    NOT NULL REFERENCES item (id),
+    name        TEXT    NOT NULL,
+    quantity    NUMERIC NOT NULL,
+    unit_price  NUMERIC NOT NULL,
+    discount    NUMERIC          DEFAULT 0,
+    total       NUMERIC NOT NULL,
+    created_at  TIMESTAMPTZ      DEFAULT NOW()
 );
 
 -- Create indexes for better query performance
@@ -110,7 +112,7 @@ CREATE INDEX idx_account_type ON account (type);
 CREATE INDEX idx_account_name ON account (name);
 CREATE INDEX idx_account_segment ON account (segment);
 CREATE INDEX idx_business_account_id ON business (account_id);
-CREATE INDEX idx_business_owner_id ON business (owner_id);
+CREATE INDEX idx_business_responsible_id ON business (responsible_id);
 CREATE INDEX idx_business_stage ON business (stage);
 CREATE INDEX idx_users_manager_id ON users (manager_id);
 CREATE INDEX idx_item_name ON item (name);
@@ -120,7 +122,7 @@ CREATE INDEX idx_item_sku_code ON item (sku_code);
 CREATE INDEX idx_account_timeline_account_id ON account_timeline (account_id);
 CREATE INDEX idx_account_timeline_type ON account_timeline (type);
 CREATE INDEX idx_account_timeline_date ON account_timeline (date);
-CREATE INDEX idx_account_timeline_created_by ON account_timeline (created_by);
+CREATE INDEX idx_account_timeline_responsible_id ON account_timeline (responsible_id);
 -- Business proposal indexes for query performance
 CREATE INDEX idx_business_proposal_business_id ON business_proposal (business_id);
 CREATE INDEX idx_business_proposal_responsible_id ON business_proposal (responsible_id);

@@ -231,10 +231,10 @@ export function applyAdvancedFiltersToQuery(query: any, parsedFilter: AdvancedPa
           foreignKey = 'responsible_id';
           relationshipSelect = 'users!responsible_id(id,name,email,role)';
           break;
-        case 'owner':
+        case 'responsible':
           relationshipTable = 'users';
-          foreignKey = 'owner_id';
-          relationshipSelect = 'users!owner_id(id,name,email,role)';
+          foreignKey = 'responsible_id';
+          relationshipSelect = 'users!responsible_id(id,name,email,role)';
           break;
         case 'manager':
           relationshipTable = 'users';
@@ -246,10 +246,10 @@ export function applyAdvancedFiltersToQuery(query: any, parsedFilter: AdvancedPa
           foreignKey = 'account_id';
           relationshipSelect = 'account!account_id(id,name,segment,status,type)';
           break;
-        case 'createdBy':
+        case 'responsible':
           relationshipTable = 'users';
-          foreignKey = 'created_by';
-          relationshipSelect = 'users!created_by(id,name,email,role)';
+          foreignKey = 'responsible_id';
+          relationshipSelect = 'users!responsible_id(id,name,email,role)';
           break;
         default:
           logger.warn('FILTER', 'Unknown relationship', { relationshipName });

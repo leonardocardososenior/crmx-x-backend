@@ -11,7 +11,7 @@ import businessRoutes from './routes/businessRoutes';
 import itemRoutes from './routes/itemRoutes';
 import businessProposalRoutes from './routes/businessProposalRoutes';
 import businessProposalItemRoutes from './routes/businessProposalItemRoutes';
-import validationRoutes from './routes/validationRoutes';
+
 import { 
   requestIdMiddleware, 
   errorHandler, 
@@ -47,7 +47,7 @@ const BUSINESS_API = BASE_API.concat("business");
 const ITEMS_API = BASE_API.concat("items");
 const BUSINESS_PROPOSALS_API = BASE_API.concat("business-proposals");
 const BUSINESS_PROPOSAL_ITEMS_API = BASE_API.concat("business-proposal-items");
-const VALIDATION_API = BASE_API.concat("validation");
+
 
 app.use(ACCOUNT_API, accountRoutes);
 app.use(ACCOUNT_TIMELINE_API, accountTimelineRoutes);
@@ -56,7 +56,7 @@ app.use(BUSINESS_API, businessRoutes);
 app.use(ITEMS_API, itemRoutes);
 app.use(BUSINESS_PROPOSALS_API, businessProposalRoutes);
 app.use(BUSINESS_PROPOSAL_ITEMS_API, businessProposalItemRoutes);
-app.use(VALIDATION_API, validationRoutes);
+
 
 // 404 handler for undefined routes
 app.use(notFoundHandler);
@@ -90,7 +90,7 @@ app.listen(PORT, () => {
   logger.info('SERVER', `Items: ${ITEMS_API}`);
   logger.info('SERVER', `Business Proposals: ${BUSINESS_PROPOSALS_API}`);
   logger.info('SERVER', `Business Proposal Items: ${BUSINESS_PROPOSAL_ITEMS_API}`);
-  logger.info('SERVER', `Validation: ${VALIDATION_API}`);
+
 });
 
 export default app;

@@ -28,6 +28,11 @@ export const AccountTypeSchema = z.string().refine(isValidAccountType, {
 // UUID validation schema
 const UUIDSchema = z.string().uuid();
 
+// Reference object schema
+const ReferenceSchema = z.object({
+  id: UUIDSchema
+});
+
 // Email validation schema
 const EmailSchema = z.string().email().optional().or(z.null());
 
@@ -44,7 +49,7 @@ const SocialMediaSchema = z.string().url().optional().or(z.literal('')).or(z.nul
 export const CreateAccountSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   segment: z.string().min(1, 'Segment is required'),
-  responsibleId: UUIDSchema,
+  responsible: ReferenceSchema,
   status: AccountStatusSchema.optional(),
   type: AccountTypeSchema.optional(),
   pipeline: z.string().optional(),
@@ -60,7 +65,7 @@ export const CreateAccountSchema = z.object({
 export const UpdateAccountSchema = z.object({
   name: z.string().min(1, 'Name cannot be empty').optional(),
   segment: z.string().min(1, 'Segment cannot be empty').optional(),
-  responsibleId: UUIDSchema.optional(),
+  responsible: ReferenceSchema.optional(),
   status: AccountStatusSchema.optional(),
   type: AccountTypeSchema.optional(),
   pipeline: z.string().optional(),
@@ -96,7 +101,7 @@ export const CreateUserSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Valid email is required'),
   role: UserRoleSchema.optional(),
-  managerId: UUIDSchema.optional()
+  manager: ReferenceSchema.optional()
 });
 
 // Update User Schema - for PUT /api/users/:id (all fields optional, camelCase)
@@ -104,7 +109,7 @@ export const UpdateUserSchema = z.object({
   name: z.string().min(1, 'Name cannot be empty').optional(),
   email: z.string().email('Valid email is required').optional(),
   role: UserRoleSchema.optional(),
-  managerId: UUIDSchema.optional()
+  manager: ReferenceSchema.optional()
 });
 
 // User ID parameter schema for route parameters
@@ -129,24 +134,24 @@ export const UserQueryParamsSchema = z.object({
 // Create Business Schema - for POST /api/business (camelCase)
 export const CreateBusinessSchema = z.object({
   title: z.string().min(1, 'Title is required'),
-  accountId: UUIDSchema,
+  account: ReferenceSchema,
   value: z.number().positive('Value must be positive'),
   currency: CurrencySchema.optional(),
   stage: BusinessStageSchema,
   probability: z.number().min(0).max(100, 'Probability must be between 0 and 100').optional(),
-  ownerId: UUIDSchema.optional(),
+  responsible: ReferenceSchema.optional(),
   closingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Closing date must be in YYYY-MM-DD format').optional()
 });
 
 // Update Business Schema - for PUT /api/business/:id (all fields optional, camelCase)
 export const UpdateBusinessSchema = z.object({
   title: z.string().min(1, 'Title cannot be empty').optional(),
-  accountId: UUIDSchema.optional(),
+  account: ReferenceSchema.optional(),
   value: z.number().positive('Value must be positive').optional(),
   currency: CurrencySchema.optional(),
   stage: BusinessStageSchema.optional(),
   probability: z.number().min(0).max(100, 'Probability must be between 0 and 100').optional(),
-  ownerId: UUIDSchema.optional(),
+  responsible: ReferenceSchema.optional(),
   closingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Closing date must be in YYYY-MM-DD format').optional().or(z.null())
 });
 

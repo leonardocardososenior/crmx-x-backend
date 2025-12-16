@@ -9,27 +9,32 @@ export const TimelineTypeSchema = z.string().refine(isValidTimelineType, {
 // UUID validation schema
 const UUIDSchema = z.string().uuid();
 
+// Reference object schema
+const ReferenceSchema = z.object({
+  id: UUIDSchema
+});
+
 // Date validation schema (ISO 8601 format)
 const DateSchema = z.string().datetime({ message: 'Date must be in ISO 8601 format' });
 
 // Create AccountTimeline Schema - for POST /api/account-timeline (camelCase)
 export const CreateAccountTimelineSchema = z.object({
-  accountId: UUIDSchema,
+  account: ReferenceSchema,
   type: TimelineTypeSchema,
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
   date: DateSchema,
-  createdBy: UUIDSchema
+  responsible: ReferenceSchema
 });
 
 // Update AccountTimeline Schema - for PUT /api/account-timeline/:id (all fields optional, camelCase)
 export const UpdateAccountTimelineSchema = z.object({
-  accountId: UUIDSchema.optional(),
+  account: ReferenceSchema.optional(),
   type: TimelineTypeSchema.optional(),
   title: z.string().min(1, 'Title cannot be empty').optional(),
   description: z.string().optional().or(z.null()),
   date: DateSchema.optional(),
-  createdBy: UUIDSchema.optional()
+  responsible: ReferenceSchema.optional()
 });
 
 // AccountTimeline Query Parameters Schema - for GET /api/account-timeline filtering and pagination (camelCase)
@@ -44,8 +49,8 @@ export const AccountTimelineQueryParamsSchema = z.object({
   dateFrom: DateSchema.optional(),
   dateTo: DateSchema.optional(),
   
-  // Created by filter parameter
-  createdBy: UUIDSchema.optional(),
+  // Responsible filter parameter
+  responsibleId: UUIDSchema.optional(),
   
   // Dynamic filter parameter (SQL-like syntax)
   filter: z.string().optional(),

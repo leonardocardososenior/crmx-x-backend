@@ -125,7 +125,7 @@ export interface Database {
           currency: string;
           stage: string;
           probability: number | null;
-          owner_id: string | null;
+          responsible_id: string | null;
           closing_date: string | null;
           created_at: string;
         };
@@ -137,7 +137,7 @@ export interface Database {
           currency?: string;
           stage: string;
           probability?: number | null;
-          owner_id?: string | null;
+          responsible_id?: string | null;
           closing_date?: string | null;
           created_at?: string;
         };
@@ -149,7 +149,7 @@ export interface Database {
           currency?: string;
           stage?: string;
           probability?: number | null;
-          owner_id?: string | null;
+          responsible_id?: string | null;
           closing_date?: string | null;
           created_at?: string;
         };

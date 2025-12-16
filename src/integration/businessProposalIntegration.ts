@@ -5,7 +5,6 @@ import {
   validateProposalUpdateWorkflow,
   validateProposalItemWorkflow,
   validateCascadeDeletion,
-  validateSystemIntegrity,
   ValidationResult
 } from '../validation/businessProposalValidation';
 import { 
@@ -457,72 +456,3 @@ export async function integratedItemUpdate(itemId: string, updateData: any, requ
   }
 }
 
-/**
- * System-wide integrity validation and reporting
- */
-export async function performSystemIntegrityCheck(): Promise<IntegrationResult> {
-  const operationId = `integrity_check_${Date.now()}`;
-  
-  logger.info('INTEGRATION', 'Starting system integrity check', { operationId });
-
-  try {
-    const validation = await validateSystemIntegrity();
-    
-    const result: IntegrationResult = {
-      success: validation.isValid,
-      data: {
-        checkTime: new Date().toISOString(),
-        totalErrors: validation.errors.length,
-        totalWarnings: validation.warnings.length
-      },
-      errors: validation.errors,
-      warnings: validation.warnings,
-      operationId
-    };
-
-    if (validation.isValid) {
-      logger.info('INTEGRATION', 'System integrity check passed', { 
-        operationId,
-        warnings: validation.warnings.length 
-      });
-    } else {
-      logger.error('INTEGRATION', 'System integrity check failed', new Error('Integrity violations found'), {
-        operationId,
-        errors: validation.errors.length,
-        warnings: validation.warnings.length
-      });
-    }
-
-    return result;
-
-  } catch (error) {
-    logger.error('INTEGRATION', 'System integrity check error', error as Error, { operationId });
-    return {
-      success: false,
-      errors: [`Integrity check error: ${(error as Error).message}`],
-      warnings: [],
-      operationId
-    };
-  }
-}
-
-/**
- * Complete workflow validation for multilingual support
- */
-export function validateMultilingualWorkflow(language: string, operation: string): IntegrationResult {
-  const supportedLanguages = ['pt-BR', 'en-US', 'es-CO'];
-  const isSupported = supportedLanguages.includes(language);
-  
-  return {
-    success: true,
-    data: {
-      requestedLanguage: language,
-      isSupported: isSupported,
-      fallbackLanguage: isSupported ? language : 'pt-BR',
-      operation: operation
-    },
-    errors: [],
-    warnings: isSupported ? [] : [`Language ${language} not supported, using pt-BR`],
-    operationId: `multilingual_${Date.now()}`
-  };
-}

@@ -51,7 +51,7 @@ const ENTITY_FIELDS = {
     'currency': 'currency',
     'stage': 'stage',
     'probability': 'probability',
-    'owner_id': 'owner_id',
+    'responsible_id': 'responsible_id',
     'closing_date': 'closing_date',
     'created_at': 'created_at',
     // Relationships - now using object structure
@@ -60,10 +60,10 @@ const ENTITY_FIELDS = {
     'account.segment': 'account!account_id.segment',
     'account.status': 'account!account_id.status',
     'account.type': 'account!account_id.type',
-    'owner.id': 'users!owner_id.id',
-    'owner.name': 'users!owner_id.name',
-    'owner.email': 'users!owner_id.email',
-    'owner.role': 'users!owner_id.role'
+    'responsible.id': 'users!responsible_id.id',
+    'responsible.name': 'users!responsible_id.name',
+    'responsible.email': 'users!responsible_id.email',
+    'responsible.role': 'users!responsible_id.role'
   },
   
   // User entity fields
@@ -100,7 +100,7 @@ const ENTITY_FIELDS = {
     'title': 'title',
     'description': 'description',
     'date': 'date',
-    'created_by': 'created_by',
+    'responsible_id': 'responsible_id',
     'created_at': 'created_at',
     // Relationships - now using object structure
     'account.id': 'account!account_id.id',
@@ -108,10 +108,10 @@ const ENTITY_FIELDS = {
     'account.segment': 'account!account_id.segment',
     'account.status': 'account!account_id.status',
     'account.type': 'account!account_id.type',
-    'createdBy.id': 'users!created_by.id',
-    'createdBy.name': 'users!created_by.name',
-    'createdBy.email': 'users!created_by.email',
-    'createdBy.role': 'users!created_by.role'
+    'responsible.id': 'users!responsible_id.id',
+    'responsible.name': 'users!responsible_id.name',
+    'responsible.email': 'users!responsible_id.email',
+    'responsible.role': 'users!responsible_id.role'
   }
 } as const;
 

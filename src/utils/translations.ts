@@ -600,7 +600,7 @@ export function getRelationshipErrorMessage(
     return t.errors.relationships.item_not_found;
   }
   // General relationship errors
-  else if (errorDetails.includes('responsible_id') || errorDetails.includes('owner_id')) {
+  else if (errorDetails.includes('responsible_id')) {
     return t.errors.relationships.owner_not_found;
   } else if (errorDetails.includes('business_id')) {
     return t.errors.relationships.business_not_found;
@@ -616,7 +616,7 @@ export function getRelationshipErrorMessage(
     return t.errors.relationships.account_not_found;
   } else if (errorDetails.includes('manager_id')) {
     return t.errors.relationships.manager_not_found;
-  } else if (errorDetails.includes('created_by')) {
+  } else if (errorDetails.includes('responsible_id')) {
     return t.errors.relationships.timeline_creator_not_found;
   }
   

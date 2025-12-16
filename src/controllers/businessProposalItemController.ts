@@ -36,16 +36,16 @@ export async function createBusinessProposalItem(req: Request, res: Response): P
   const startTime = Date.now();
   
   try {
-    logger.proposalItemOperation('CREATE_START', undefined, req.body?.proposalId, {
+    logger.proposalItemOperation('CREATE_START', undefined, req.body?.proposal?.id, {
       requestId,
-      itemId: req.body?.itemId
+      itemId: req.body?.item?.id
     });
 
     // Validate request body using Zod schema
     const validationResult = CreateBusinessProposalItemSchema.safeParse(req.body);
     
     if (!validationResult.success) {
-      logger.proposalItemError('CREATE_VALIDATION_FAILED', new Error('Validation failed'), undefined, req.body?.proposalId);
+      logger.proposalItemError('CREATE_VALIDATION_FAILED', new Error('Validation failed'), undefined, req.body?.proposal?.id);
       handleValidationError(validationResult, res, req);
       return;
     }
@@ -53,17 +53,17 @@ export async function createBusinessProposalItem(req: Request, res: Response): P
     const itemData: CreateBusinessProposalItemInput = validationResult.data;
 
     // Check if business proposal exists
-    const proposalExists = await checkEntityExists('business_proposal', itemData.proposalId);
+    const proposalExists = await checkEntityExists('business_proposal', itemData.proposal.id);
     if (!proposalExists) {
-      logger.proposalItemError('CREATE_PROPOSAL_NOT_FOUND', new Error('Proposal not found'), undefined, itemData.proposalId);
+      logger.proposalItemError('CREATE_PROPOSAL_NOT_FOUND', new Error('Proposal not found'), undefined, itemData.proposal.id);
       handleNotFound('Proposal', res, req);
       return;
     }
 
     // Check if item exists
-    const itemExists = await checkEntityExists('item', itemData.itemId);
+    const itemExists = await checkEntityExists('item', itemData.item.id);
     if (!itemExists) {
-      logger.proposalItemError('CREATE_ITEM_NOT_FOUND', new Error('Item not found'), undefined, itemData.proposalId);
+      logger.proposalItemError('CREATE_ITEM_NOT_FOUND', new Error('Item not found'), undefined, itemData.proposal.id);
       handleNotFound('Item', res, req);
       return;
     }
@@ -74,7 +74,7 @@ export async function createBusinessProposalItem(req: Request, res: Response): P
     
     // Validate calculation
     if (total < 0) {
-      logger.proposalItemError('CREATE_NEGATIVE_TOTAL', new Error(`Negative total calculated: ${total}`), undefined, itemData.proposalId);
+      logger.proposalItemError('CREATE_NEGATIVE_TOTAL', new Error(`Negative total calculated: ${total}`), undefined, itemData.proposal.id);
       const language = getLanguageFromRequest(req);
       const errorMessages = {
         'pt-BR': 'O desconto não pode ser maior que o valor total do item',
@@ -91,7 +91,7 @@ export async function createBusinessProposalItem(req: Request, res: Response): P
     }
     
     if (itemData.quantity <= 0) {
-      logger.proposalItemError('CREATE_INVALID_QUANTITY', new Error(`Invalid quantity: ${itemData.quantity}`), undefined, itemData.proposalId);
+      logger.proposalItemError('CREATE_INVALID_QUANTITY', new Error(`Invalid quantity: ${itemData.quantity}`), undefined, itemData.proposal.id);
       const language = getLanguageFromRequest(req);
       const errorMessages = {
         'pt-BR': 'A quantidade deve ser maior que zero',
@@ -108,7 +108,7 @@ export async function createBusinessProposalItem(req: Request, res: Response): P
     }
     
     if (itemData.unitPrice < 0) {
-      logger.proposalItemError('CREATE_NEGATIVE_PRICE', new Error(`Negative unit price: ${itemData.unitPrice}`), undefined, itemData.proposalId);
+      logger.proposalItemError('CREATE_NEGATIVE_PRICE', new Error(`Negative unit price: ${itemData.unitPrice}`), undefined, itemData.proposal.id);
       const language = getLanguageFromRequest(req);
       const errorMessages = {
         'pt-BR': 'O preço unitário não pode ser negativo',
@@ -137,7 +137,7 @@ export async function createBusinessProposalItem(req: Request, res: Response): P
       .single();
 
     if (error) {
-      logger.proposalItemError('CREATE_DB_ERROR', error as Error, undefined, itemData.proposalId);
+      logger.proposalItemError('CREATE_DB_ERROR', error as Error, undefined, itemData.proposal.id);
       handleDatabaseError('INSERT', 'business_proposal_item', error, res, req);
       return;
     }
@@ -146,7 +146,7 @@ export async function createBusinessProposalItem(req: Request, res: Response): P
     const apiItem = businessProposalItemDbToApi(createdItem as BusinessProposalItemDB);
     
     const duration = Date.now() - startTime;
-    logger.proposalItemOperation('CREATE_SUCCESS', createdItem.id, itemData.proposalId, {
+    logger.proposalItemOperation('CREATE_SUCCESS', createdItem.id, itemData.proposal.id, {
       requestId,
       duration,
       total: apiItem.total
@@ -156,12 +156,12 @@ export async function createBusinessProposalItem(req: Request, res: Response): P
 
   } catch (error) {
     const duration = Date.now() - startTime;
-    logger.proposalItemError('CREATE_INTERNAL_ERROR', error as Error, undefined, req.body?.proposalId);
+    logger.proposalItemError('CREATE_INTERNAL_ERROR', error as Error, undefined, req.body?.proposal?.id);
     logger.error('CONTROLLER', `Business proposal item creation failed after ${duration}ms`, error as Error, {
       requestId,
       duration,
-      proposalId: req.body?.proposalId,
-      itemId: req.body?.itemId
+      proposalId: req.body?.proposal?.id,
+      itemId: req.body?.item?.id
     });
     handleInternalError('creating business proposal item', error, res, req);
   }
@@ -384,8 +384,8 @@ export async function updateBusinessProposalItem(req: Request, res: Response): P
     const currentItem = existingItem as BusinessProposalItemDB;
 
     // Check if item exists (if being updated)
-    if (updateData.itemId) {
-      const itemExists = await checkEntityExists('item', updateData.itemId);
+    if (updateData.item) {
+      const itemExists = await checkEntityExists('item', updateData.item.id);
       if (!itemExists) {
         handleNotFound('Item', res, req);
         return;

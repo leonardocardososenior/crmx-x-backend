@@ -183,7 +183,7 @@ export interface BusinessDB {
   currency: string;
   stage: string;
   probability: number;
-  owner_id?: string;
+  responsible_id?: string;
   closing_date?: string;
   created_at: string;
 }
@@ -197,7 +197,7 @@ export interface Business {
   currency: string;
   stage: string;
   probability?: number;
-  owner?: UserReference;
+  responsible?: UserReference;
   closingDate?: string;
   createdAt: string;
 }
@@ -232,7 +232,7 @@ export interface AccountTimelineDB {
   title: string;
   description?: string | null;
   date: string;
-  created_by: string;
+  responsible_id: string;
   created_at: string;
 }
 
@@ -273,7 +273,7 @@ export interface AccountTimeline {
   title: string;
   description?: string;
   date: string;
-  createdBy: UserReference;
+  responsible: UserReference;
   createdAt: string;
 }
 
@@ -329,7 +329,7 @@ export interface PaginatedResponse<T> {
 export interface CreateAccountRequest {
   name: string;
   segment: string;
-  responsibleId: string; // Still accept ID for input
+  responsible: UserReference;
   email?: string;
   phone?: string;
   cnpj?: string;
@@ -341,7 +341,7 @@ export interface CreateAccountRequest {
 export interface UpdateAccountRequest {
   name?: string;
   segment?: string;
-  responsibleId?: string; // Still accept ID for input
+  responsible?: UserReference;
   status?: string;
   type?: string;
   pipeline?: string;
@@ -355,37 +355,37 @@ export interface UpdateAccountRequest {
 
 export interface CreateBusinessRequest {
   title: string;
-  accountId: string; // Still accept ID for input
+  account: AccountReference;
   value: number;
   currency?: string;
   stage: string;
   probability?: number;
-  ownerId?: string; // Still accept ID for input
+  responsible?: UserReference;
   closingDate?: string;
 }
 
 export interface UpdateBusinessRequest {
   title?: string;
-  accountId?: string; // Still accept ID for input
+  account?: AccountReference;
   value?: number;
   currency?: string;
   stage?: string;
   probability?: number;
-  ownerId?: string; // Still accept ID for input
+  responsible?: UserReference;
   closingDate?: string | null;
 }
 
 export interface CreateUserRequest {
   name: string;
   role?: string;
-  managerId?: string; // Still accept ID for input
+  manager?: UserReference;
   email: string;
 }
 
 export interface UpdateUserRequest {
   name?: string;
   role?: string;
-  managerId?: string; // Still accept ID for input
+  manager?: UserReference;
   email?: string;
 }
 
@@ -424,21 +424,21 @@ export interface ItemQueryParams {
 }
 
 export interface CreateAccountTimelineRequest {
-  accountId: string; // Still accept ID for input
+  account: AccountReference;
   type: string;
   title: string;
   description?: string;
   date: string;
-  createdBy: string; // Still accept ID for input
+  responsible: UserReference;
 }
 
 export interface UpdateAccountTimelineRequest {
-  accountId?: string; // Still accept ID for input
+  account?: AccountReference;
   type?: string;
   title?: string;
   description?: string | null;
   date?: string;
-  createdBy?: string; // Still accept ID for input
+  responsible?: UserReference;
 }
 
 export interface AccountTimelineQueryParams {
@@ -446,14 +446,14 @@ export interface AccountTimelineQueryParams {
   type?: string;
   dateFrom?: string;
   dateTo?: string;
-  createdBy?: string;
+  responsibleId?: string;
   page?: number;
   size?: number;
 }
 
 export interface CreateBusinessProposalRequest {
-  businessId: string;
-  responsibleId: string;
+  business: BusinessReference;
+  responsible: UserReference;
   title: string;
   status?: string;
   date: string;
@@ -465,8 +465,8 @@ export interface CreateBusinessProposalRequest {
 }
 
 export interface UpdateBusinessProposalRequest {
-  businessId?: string;
-  responsibleId?: string;
+  business?: BusinessReference;
+  responsible?: UserReference;
   title?: string;
   status?: string;
   date?: string;
@@ -478,8 +478,8 @@ export interface UpdateBusinessProposalRequest {
 }
 
 export interface CreateBusinessProposalItemRequest {
-  proposalId: string;
-  itemId: string;
+  proposal: BusinessProposalReference;
+  item: ItemReference;
   name: string;
   quantity: number;
   unitPrice: number;
@@ -487,8 +487,8 @@ export interface CreateBusinessProposalItemRequest {
 }
 
 export interface UpdateBusinessProposalItemRequest {
-  proposalId?: string;
-  itemId?: string;
+  proposal?: BusinessProposalReference;
+  item?: ItemReference;
   name?: string;
   quantity?: number;
   unitPrice?: number;
@@ -564,7 +564,7 @@ export function accountApiToDb(apiAccount: CreateAccountRequest | UpdateAccountR
   
   if ('name' in apiAccount && apiAccount.name !== undefined) dbAccount.name = apiAccount.name;
   if ('segment' in apiAccount && apiAccount.segment !== undefined) dbAccount.segment = apiAccount.segment;
-  if ('responsibleId' in apiAccount && apiAccount.responsibleId !== undefined) dbAccount.responsible_id = apiAccount.responsibleId;
+  if ('responsible' in apiAccount && apiAccount.responsible !== undefined) dbAccount.responsible_id = apiAccount.responsible.id;
   if ('status' in apiAccount && apiAccount.status !== undefined) dbAccount.status = apiAccount.status;
   if ('type' in apiAccount && apiAccount.type !== undefined) dbAccount.type = apiAccount.type;
   if ('pipeline' in apiAccount && apiAccount.pipeline !== undefined) dbAccount.pipeline = apiAccount.pipeline;
@@ -587,7 +587,7 @@ export function businessDbToApi(dbBusiness: BusinessDB): Business {
     currency: dbBusiness.currency,
     stage: dbBusiness.stage,
     probability: dbBusiness.probability,
-    owner: dbBusiness.owner_id ? { id: dbBusiness.owner_id } : undefined,
+    responsible: dbBusiness.responsible_id ? { id: dbBusiness.responsible_id } : undefined,
     closingDate: dbBusiness.closing_date,
     createdAt: dbBusiness.created_at
   };
@@ -599,12 +599,12 @@ export function businessApiToDb(apiBusiness: CreateBusinessRequest | UpdateBusin
   const dbBusiness: Partial<BusinessDB> = {};
   
   if ('title' in apiBusiness && apiBusiness.title !== undefined) dbBusiness.title = apiBusiness.title;
-  if ('accountId' in apiBusiness && apiBusiness.accountId !== undefined) dbBusiness.account_id = apiBusiness.accountId;
+  if ('account' in apiBusiness && apiBusiness.account !== undefined) dbBusiness.account_id = apiBusiness.account.id;
   if ('value' in apiBusiness && apiBusiness.value !== undefined) dbBusiness.value = apiBusiness.value;
   if ('currency' in apiBusiness && apiBusiness.currency !== undefined) dbBusiness.currency = apiBusiness.currency;
   if ('stage' in apiBusiness && apiBusiness.stage !== undefined) dbBusiness.stage = apiBusiness.stage;
   if ('probability' in apiBusiness && apiBusiness.probability !== undefined) dbBusiness.probability = apiBusiness.probability;
-  if ('ownerId' in apiBusiness && apiBusiness.ownerId !== undefined) dbBusiness.owner_id = apiBusiness.ownerId;
+  if ('responsible' in apiBusiness && apiBusiness.responsible !== undefined) dbBusiness.responsible_id = apiBusiness.responsible.id;
   if ('closingDate' in apiBusiness && apiBusiness.closingDate !== undefined) dbBusiness.closing_date = apiBusiness.closingDate || undefined;
   
   return dbBusiness;
@@ -628,7 +628,7 @@ export function userApiToDb(apiUser: CreateUserRequest | UpdateUserRequest): Par
   
   if ('name' in apiUser && apiUser.name !== undefined) dbUser.name = apiUser.name;
   if ('role' in apiUser && apiUser.role !== undefined) dbUser.role = apiUser.role;
-  if ('managerId' in apiUser && apiUser.managerId !== undefined) dbUser.manager_id = apiUser.managerId;
+  if ('manager' in apiUser && apiUser.manager !== undefined) dbUser.manager_id = apiUser.manager.id;
   if ('email' in apiUser && apiUser.email !== undefined) dbUser.email = apiUser.email;
   
   return dbUser;
@@ -668,7 +668,7 @@ export function accountTimelineDbToApi(dbTimeline: AccountTimelineDB): AccountTi
     title: dbTimeline.title,
     description: dbTimeline.description,
     date: dbTimeline.date,
-    createdBy: { id: dbTimeline.created_by },
+    responsible: { id: dbTimeline.responsible_id },
     createdAt: dbTimeline.created_at
   };
   
@@ -678,12 +678,12 @@ export function accountTimelineDbToApi(dbTimeline: AccountTimelineDB): AccountTi
 export function accountTimelineApiToDb(apiTimeline: CreateAccountTimelineRequest | UpdateAccountTimelineRequest): Partial<AccountTimelineDB> {
   const dbTimeline: Partial<AccountTimelineDB> = {};
   
-  if ('accountId' in apiTimeline && apiTimeline.accountId !== undefined) dbTimeline.account_id = apiTimeline.accountId;
+  if ('account' in apiTimeline && apiTimeline.account !== undefined) dbTimeline.account_id = apiTimeline.account.id;
   if ('type' in apiTimeline && apiTimeline.type !== undefined) dbTimeline.type = apiTimeline.type;
   if ('title' in apiTimeline && apiTimeline.title !== undefined) dbTimeline.title = apiTimeline.title;
   if ('description' in apiTimeline && apiTimeline.description !== undefined) dbTimeline.description = apiTimeline.description;
   if ('date' in apiTimeline && apiTimeline.date !== undefined) dbTimeline.date = apiTimeline.date;
-  if ('createdBy' in apiTimeline && apiTimeline.createdBy !== undefined) dbTimeline.created_by = apiTimeline.createdBy;
+  if ('responsible' in apiTimeline && apiTimeline.responsible !== undefined) dbTimeline.responsible_id = apiTimeline.responsible.id;
   
   return dbTimeline;
 }
@@ -710,8 +710,8 @@ export function businessProposalDbToApi(dbProposal: BusinessProposalDB): Busines
 export function businessProposalApiToDb(apiProposal: CreateBusinessProposalRequest | UpdateBusinessProposalRequest): Partial<BusinessProposalDB> {
   const dbProposal: Partial<BusinessProposalDB> = {};
   
-  if ('businessId' in apiProposal && apiProposal.businessId !== undefined) dbProposal.business_id = apiProposal.businessId;
-  if ('responsibleId' in apiProposal && apiProposal.responsibleId !== undefined) dbProposal.responsible_id = apiProposal.responsibleId;
+  if ('business' in apiProposal && apiProposal.business !== undefined) dbProposal.business_id = apiProposal.business.id;
+  if ('responsible' in apiProposal && apiProposal.responsible !== undefined) dbProposal.responsible_id = apiProposal.responsible.id;
   if ('title' in apiProposal && apiProposal.title !== undefined) dbProposal.title = apiProposal.title;
   if ('status' in apiProposal && apiProposal.status !== undefined) dbProposal.status = apiProposal.status;
   if ('date' in apiProposal && apiProposal.date !== undefined) dbProposal.date = apiProposal.date;
@@ -743,8 +743,8 @@ export function businessProposalItemDbToApi(dbItem: BusinessProposalItemDB): Bus
 export function businessProposalItemApiToDb(apiItem: CreateBusinessProposalItemRequest | UpdateBusinessProposalItemRequest): Partial<BusinessProposalItemDB> {
   const dbItem: Partial<BusinessProposalItemDB> = {};
   
-  if ('proposalId' in apiItem && apiItem.proposalId !== undefined) dbItem.proposal_id = apiItem.proposalId;
-  if ('itemId' in apiItem && apiItem.itemId !== undefined) dbItem.item_id = apiItem.itemId;
+  if ('proposal' in apiItem && apiItem.proposal !== undefined) dbItem.proposal_id = apiItem.proposal.id;
+  if ('item' in apiItem && apiItem.item !== undefined) dbItem.item_id = apiItem.item.id;
   if ('name' in apiItem && apiItem.name !== undefined) dbItem.name = apiItem.name;
   if ('quantity' in apiItem && apiItem.quantity !== undefined) dbItem.quantity = apiItem.quantity;
   if ('unitPrice' in apiItem && apiItem.unitPrice !== undefined) dbItem.unit_price = apiItem.unitPrice;

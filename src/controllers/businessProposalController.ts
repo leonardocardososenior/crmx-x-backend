@@ -41,16 +41,16 @@ export async function createBusinessProposal(req: Request, res: Response): Promi
   
   try {
     // Log the operation start
-    logger.proposalOperation('CREATE_START', undefined, req.body?.responsibleId, {
+    logger.proposalOperation('CREATE_START', undefined, req.body?.responsible?.id, {
       requestId,
-      businessId: req.body?.businessId
+      businessId: req.body?.business?.id
     });
 
     // Validate request body using Zod schema
     const validationResult = CreateBusinessProposalSchema.safeParse(req.body);
     
     if (!validationResult.success) {
-      logger.proposalError('CREATE_VALIDATION_FAILED', new Error('Validation failed'), undefined, req.body?.responsibleId);
+      logger.proposalError('CREATE_VALIDATION_FAILED', new Error('Validation failed'), undefined, req.body?.responsible?.id);
       handleValidationError(validationResult, res, req);
       return;
     }
@@ -58,17 +58,17 @@ export async function createBusinessProposal(req: Request, res: Response): Promi
     const proposalData: CreateBusinessProposalInput = validationResult.data;
 
     // Check if business exists
-    const businessExists = await checkEntityExists('business', proposalData.businessId);
+    const businessExists = await checkEntityExists('business', proposalData.business.id);
     if (!businessExists) {
-      logger.proposalError('CREATE_BUSINESS_NOT_FOUND', new Error('Business not found'), undefined, proposalData.responsibleId);
+      logger.proposalError('CREATE_BUSINESS_NOT_FOUND', new Error('Business not found'), undefined, proposalData.responsible.id);
       handleNotFound('Business', res, req);
       return;
     }
 
     // Check if responsible user exists
-    const userExists = await checkEntityExists('users', proposalData.responsibleId);
+    const userExists = await checkEntityExists('users', proposalData.responsible.id);
     if (!userExists) {
-      logger.proposalError('CREATE_USER_NOT_FOUND', new Error('User not found'), undefined, proposalData.responsibleId);
+      logger.proposalError('CREATE_USER_NOT_FOUND', new Error('User not found'), undefined, proposalData.responsible.id);
       handleNotFound('User', res, req);
       return;
     }
@@ -90,7 +90,7 @@ export async function createBusinessProposal(req: Request, res: Response): Promi
       .single();
 
     if (proposalError) {
-      logger.proposalError('CREATE_PROPOSAL_DB_ERROR', proposalError as Error, undefined, proposalData.responsibleId);
+      logger.proposalError('CREATE_PROPOSAL_DB_ERROR', proposalError as Error, undefined, proposalData.responsible.id);
       handleDatabaseError('INSERT', 'business_proposal', proposalError, res, req);
       return;
     }
@@ -101,7 +101,7 @@ export async function createBusinessProposal(req: Request, res: Response): Promi
     const apiProposal = businessProposalDbToApi(createdProposal as BusinessProposalDB);
     
     const duration = Date.now() - startTime;
-    logger.proposalOperation('CREATE_SUCCESS', createdProposal.id, proposalData.responsibleId, {
+    logger.proposalOperation('CREATE_SUCCESS', createdProposal.id, proposalData.responsible.id, {
       requestId,
       duration,
       totalValue: apiProposal.value
@@ -111,12 +111,12 @@ export async function createBusinessProposal(req: Request, res: Response): Promi
 
   } catch (error) {
     const duration = Date.now() - startTime;
-    logger.proposalError('CREATE_INTERNAL_ERROR', error as Error, undefined, req.body?.responsibleId);
+    logger.proposalError('CREATE_INTERNAL_ERROR', error as Error, undefined, req.body?.responsible?.id);
     logger.error('CONTROLLER', `Business proposal creation failed after ${duration}ms`, error as Error, {
       requestId,
       duration,
-      businessId: req.body?.businessId,
-      responsibleId: req.body?.responsibleId
+      businessId: req.body?.business?.id,
+      responsibleId: req.body?.responsible?.id
     });
     handleInternalError('creating business proposal', error, res, req);
   }
@@ -346,8 +346,8 @@ export async function updateBusinessProposal(req: Request, res: Response): Promi
     }
 
     // Check if business exists (if being updated)
-    if (updateData.businessId) {
-      const businessExists = await checkEntityExists('business', updateData.businessId);
+    if (updateData.business) {
+      const businessExists = await checkEntityExists('business', updateData.business.id);
       if (!businessExists) {
         handleNotFound('Business', res, req);
         return;
@@ -355,8 +355,8 @@ export async function updateBusinessProposal(req: Request, res: Response): Promi
     }
 
     // Check if responsible user exists (if being updated)
-    if (updateData.responsibleId) {
-      const userExists = await checkEntityExists('users', updateData.responsibleId);
+    if (updateData.responsible) {
+      const userExists = await checkEntityExists('users', updateData.responsible.id);
       if (!userExists) {
         handleNotFound('User', res, req);
         return;
@@ -383,7 +383,7 @@ export async function updateBusinessProposal(req: Request, res: Response): Promi
     const apiProposal = businessProposalDbToApi(updatedProposal as BusinessProposalDB);
     
     const duration = Date.now() - startTime;
-    logger.proposalOperation('UPDATE_SUCCESS', id, updateData.responsibleId || 'unknown', {
+    logger.proposalOperation('UPDATE_SUCCESS', id, updateData.responsible?.id || 'unknown', {
       requestId,
       duration,
       fieldsUpdated: Object.keys(updateData).length

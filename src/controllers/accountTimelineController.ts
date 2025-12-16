@@ -41,21 +41,21 @@ export async function createAccountTimeline(req: Request, res: Response): Promis
     const timelineData = validationResult.data!;
 
     // Check if referenced account exists
-    const accountExists = await checkEntityExists('account', timelineData.accountId);
+    const accountExists = await checkEntityExists('account', timelineData.account.id);
     if (!accountExists) {
       res.status(400).json({
         message: 'Referenced account does not exist',
-        field: 'accountId'
+        field: 'account'
       });
       return;
     }
 
     // Check if referenced user exists
-    const userExists = await checkEntityExists('users', timelineData.createdBy);
+    const userExists = await checkEntityExists('users', timelineData.responsible.id);
     if (!userExists) {
       res.status(400).json({
         message: 'Referenced user does not exist',
-        field: 'createdBy'
+        field: 'responsible'
       });
       return;
     }
@@ -115,8 +115,8 @@ export async function getAccountTimelines(req: Request, res: Response): Promise<
       query = query.eq('type', queryParams.type);
     }
 
-    if (queryParams.createdBy) {
-      query = query.eq('created_by', queryParams.createdBy);
+    if (queryParams.responsibleId) {
+      query = query.eq('responsible_id', queryParams.responsibleId);
     }
 
     if (queryParams.dateFrom) {
@@ -274,23 +274,23 @@ export async function updateAccountTimeline(req: Request, res: Response): Promis
     }
 
     // Check foreign key constraints if they are being updated
-    if (updateData.accountId) {
-      const accountExists = await checkEntityExists('account', updateData.accountId);
+    if (updateData.account) {
+      const accountExists = await checkEntityExists('account', updateData.account.id);
       if (!accountExists) {
         res.status(400).json({
           message: 'Referenced account does not exist',
-          field: 'accountId'
+          field: 'account'
         });
         return;
       }
     }
 
-    if (updateData.createdBy) {
-      const userExists = await checkEntityExists('users', updateData.createdBy);
+    if (updateData.responsible) {
+      const userExists = await checkEntityExists('users', updateData.responsible.id);
       if (!userExists) {
         res.status(400).json({
           message: 'Referenced user does not exist',
-          field: 'createdBy'
+          field: 'responsible'
         });
         return;
       }
@@ -416,8 +416,8 @@ export async function getAccountTimelineByAccountId(req: Request, res: Response)
       query = query.eq('type', queryParams.type);
     }
 
-    if (queryParams.createdBy) {
-      query = query.eq('created_by', queryParams.createdBy);
+    if (queryParams.responsibleId) {
+      query = query.eq('responsible_id', queryParams.responsibleId);
     }
 
     if (queryParams.dateFrom) {

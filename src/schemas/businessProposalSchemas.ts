@@ -9,6 +9,11 @@ export const BusinessProposalStatusSchema = z.string().refine(isValidBusinessPro
 // UUID validation schema
 const UUIDSchema = z.string().uuid();
 
+// Reference object schema
+const ReferenceSchema = z.object({
+  id: UUIDSchema
+});
+
 // Date validation schema (ISO 8601 format)
 const DateSchema = z.string().datetime({ message: 'Date must be in ISO 8601 format' });
 
@@ -23,8 +28,8 @@ const NonNegativeNumberSchema = z.number().min(0, 'Value must be non-negative');
 
 // Create BusinessProposalItem Schema - for standalone item creation
 export const CreateBusinessProposalItemSchema = z.object({
-  proposalId: UUIDSchema,
-  itemId: UUIDSchema,
+  proposal: ReferenceSchema,
+  item: ReferenceSchema,
   name: z.string().min(1, 'Name is required'),
   quantity: PositiveNumberSchema,
   unitPrice: PositiveNumberSchema,
@@ -43,8 +48,8 @@ export const CreateBusinessProposalItemSchema = z.object({
 
 // Update BusinessProposalItem Schema - for updating individual items
 export const UpdateBusinessProposalItemSchema = z.object({
-  proposalId: UUIDSchema.optional(),
-  itemId: UUIDSchema.optional(),
+  proposal: ReferenceSchema.optional(),
+  item: ReferenceSchema.optional(),
   name: z.string().min(1, 'Name cannot be empty').optional(),
   quantity: PositiveNumberSchema.optional(),
   unitPrice: PositiveNumberSchema.optional(),
@@ -63,8 +68,8 @@ export const UpdateBusinessProposalItemSchema = z.object({
 
 // Create BusinessProposal Schema - for POST /api/business-proposals (camelCase)
 export const CreateBusinessProposalSchema = z.object({
-  businessId: UUIDSchema,
-  responsibleId: UUIDSchema,
+  business: ReferenceSchema,
+  responsible: ReferenceSchema,
   title: z.string().min(1, 'Title is required'),
   status: BusinessProposalStatusSchema.optional(),
   date: DateOnlySchema,
@@ -77,8 +82,8 @@ export const CreateBusinessProposalSchema = z.object({
 
 // Update BusinessProposal Schema - for PUT /api/business-proposals/:id (all fields optional, camelCase)
 export const UpdateBusinessProposalSchema = z.object({
-  businessId: UUIDSchema.optional(),
-  responsibleId: UUIDSchema.optional(),
+  business: ReferenceSchema.optional(),
+  responsible: ReferenceSchema.optional(),
   title: z.string().min(1, 'Title cannot be empty').optional(),
   status: BusinessProposalStatusSchema.optional(),
   date: DateOnlySchema.optional(),
