@@ -73,7 +73,7 @@ export function errorHandler(
 
   // Zod validation errors
   if (error instanceof ZodError) {
-    const firstError = error.errors[0];
+    const firstError = error.issues[0];
     let message = t.errors.validation.invalid_data;
     
     if (firstError) {

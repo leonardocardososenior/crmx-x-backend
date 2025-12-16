@@ -428,9 +428,6 @@ export interface BusinessProposalItemQueryParams {
 // Dashboard-specific types and constants
 
 // Dashboard interfaces for revenue queries
-export interface RevenuePerYearParams {
-  year: number;
-}
 
 export interface MonthlyRevenueResponse {
   [monthName: string]: number;

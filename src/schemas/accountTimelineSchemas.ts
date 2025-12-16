@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from '../utils/zodExtensions';
 import { TimelineTypes, isValidTimelineType } from '../types';
 
 // Timeline Type validation schema

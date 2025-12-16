@@ -21,6 +21,6 @@ module.exports = {
     'lcov',
     'html'
   ],
-  setupFilesAfterEnv: ['<rootDir>/src/test/setup.ts'],
+
   testTimeout: 10000
 };

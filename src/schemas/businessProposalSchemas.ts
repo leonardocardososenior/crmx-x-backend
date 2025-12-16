@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from '../utils/zodExtensions';
 import { BusinessProposalStatuses, isValidBusinessProposalStatus } from '../types';
 
 // Business Proposal Status validation schema

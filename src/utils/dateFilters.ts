@@ -5,6 +5,11 @@ export interface DateRange {
   endDate: string;
 }
 
+export interface PeriodRange {
+  start: Date;
+  end: Date;
+}
+
 /**
  * Calculate date range based on dashboard period
  * All calculations are based on the current date
@@ -74,6 +79,64 @@ export function createClosingDateFilter(period: DashboardPeriod) {
     gte: startDate,
     lte: endDate
   };
+}
+
+/**
+ * Calculate period range for new business queries
+ * Returns start and end dates for database filtering based on created_at field
+ * 
+ * Period definitions for new business counting:
+ * - THIS_MONTH: From first day of current month until today
+ * - THIS_YEAR: From January 1st of current year until today
+ * - LAST_QUARTER: Previous complete quarter (3-month period)
+ * 
+ * Requirements: 1.2, 1.3, 1.4
+ */
+export function calculatePeriodRange(period: DashboardPeriod): PeriodRange {
+  const now = new Date();
+  let start: Date;
+  let end: Date;
+
+  switch (period) {
+    case DashboardPeriods.THIS_MONTH:
+      // From first day of current month until today
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      end = new Date(now); // Today
+      break;
+
+    case DashboardPeriods.THIS_YEAR:
+      // From January 1st of current year until today
+      start = new Date(now.getFullYear(), 0, 1);
+      end = new Date(now); // Today
+      break;
+
+    case DashboardPeriods.LAST_QUARTER:
+      // Previous complete quarter (3-month period)
+      const currentQuarter = Math.floor(now.getMonth() / 3);
+      let targetQuarter: number;
+      let targetYear: number;
+
+      if (currentQuarter === 0) {
+        // If we're in Q1, previous quarter is Q4 of last year
+        targetQuarter = 3;
+        targetYear = now.getFullYear() - 1;
+      } else {
+        // Otherwise, previous quarter is the one before current
+        targetQuarter = currentQuarter - 1;
+        targetYear = now.getFullYear();
+      }
+
+      // Start of previous quarter (first day of first month of quarter)
+      start = new Date(targetYear, targetQuarter * 3, 1);
+      // End of previous quarter (last day of last month of quarter)
+      end = new Date(targetYear, (targetQuarter * 3) + 3, 0, 23, 59, 59, 999);
+      break;
+
+    default:
+      throw new Error(`Invalid dashboard period: ${period}`);
+  }
+
+  return { start, end };
 }
 
 /**

@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from '../utils/zodExtensions';
 import { AccountStatuses, AccountTypes, UserRoles, BusinessStages, Currencies, isValidAccountStatus, isValidAccountType, isValidUserRole, isValidBusinessStage, isValidCurrency } from '../types';
 
 // User Role validation schema

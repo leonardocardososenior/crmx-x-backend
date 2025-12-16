@@ -32,6 +32,8 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+
+
 // Health check endpoint
 app.get('/health-check', (req, res) => {
   res.status(200).json({ 
@@ -61,6 +63,7 @@ app.use(BUSINESS_PROPOSAL_ITEMS_API, businessProposalItemRoutes);
 app.use(DASHBOARD_API, dashboardRoutes);
 
 
+
 // 404 handler for undefined routes
 app.use(notFoundHandler);
 
@@ -81,9 +84,12 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
+
+
 // Start server
 app.listen(PORT, () => {
   logger.serverStart(Number(PORT));
+  
   logger.info('SERVER', `Health check available at /health`);
   logger.info('SERVER', `API endpoints available at:`);
   logger.info('SERVER', `Accounts: ${ACCOUNT_API}`);
@@ -94,7 +100,6 @@ app.listen(PORT, () => {
   logger.info('SERVER', `Business Proposals: ${BUSINESS_PROPOSALS_API}`);
   logger.info('SERVER', `Business Proposal Items: ${BUSINESS_PROPOSAL_ITEMS_API}`);
   logger.info('SERVER', `Dashboard: ${DASHBOARD_API}`);
-
 });
 
 export default app;

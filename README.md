@@ -51,6 +51,7 @@ npm start
 - `npm test` - Executa os testes
 - `npm run test:watch` - Executa os testes em modo watch
 - `npm run test:coverage` - Executa os testes com coverage
+- `npm run generate-docs` - Gera documentação OpenAPI em formato YAML
 
 ## Estrutura do Projeto
 
@@ -106,8 +107,45 @@ O script faz automaticamente:
 - `PUT /api/business/:id` - Atualizar negócio
 - `DELETE /api/business/:id` - Eliminar negócio
 
+### Itens
+- `POST /api/items` - Criar novo item
+- `GET /api/items` - Listar itens (com filtros e paginação)
+- `GET /api/items/:id` - Obter item por ID
+- `PUT /api/items/:id` - Atualizar item
+- `DELETE /api/items/:id` - Eliminar item
+
+### Timeline de Contas
+- `POST /api/account-timeline` - Criar nova entrada de timeline
+- `GET /api/account-timeline` - Listar entradas de timeline
+- `GET /api/account-timeline/:id` - Obter entrada por ID
+- `PUT /api/account-timeline/:id` - Atualizar entrada
+- `DELETE /api/account-timeline/:id` - Eliminar entrada
+- `GET /api/accounts/:accountId/timeline` - Timeline específica de uma conta
+
+### Propostas de Negócio
+- `POST /api/business-proposals` - Criar nova proposta
+- `GET /api/business-proposals` - Listar propostas
+- `GET /api/business-proposals/:id` - Obter proposta por ID
+- `PUT /api/business-proposals/:id` - Atualizar proposta
+- `DELETE /api/business-proposals/:id` - Eliminar proposta
+
+### Itens de Proposta
+- `POST /api/business-proposal-items` - Criar novo item de proposta
+- `GET /api/business-proposal-items` - Listar itens de proposta
+- `GET /api/business-proposal-items/:id` - Obter item por ID
+- `PUT /api/business-proposal-items/:id` - Atualizar item
+- `DELETE /api/business-proposal-items/:id` - Eliminar item
+
+### Dashboard Analytics
+- `GET /api/dashboard/revenue-per-year/:year` - Receita mensal por ano
+- `GET /api/dashboard/more-sales-by-responsible` - Vendas por responsável
+- `GET /api/dashboard/sales-funnel` - Funil de vendas
+- `GET /api/dashboard/total-revenue` - Receita total
+- `GET /api/dashboard/active-accounts` - Contas ativas
+- `GET /api/dashboard/new-business` - Novos negócios
+
 ### Health Check
-- `GET /health` - Verificar status da aplicação
+- `GET /health-check` - Verificar status da aplicação
 
 ## Parâmetros de Query para APIs GET/all
 
@@ -175,4 +213,6 @@ SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 # Server
 PORT=3000
 NODE_ENV=development
+
+
 ```

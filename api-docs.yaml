@@ -1,0 +1,4031 @@
+openapi: "3.0.3"
+info:
+  title: "CRM System API"
+  version: "1.0.0"
+  description: "Sistema de gerenciamento de relacionamento com clientes - API completa para operações CRUD e relatórios de dashboard"
+  contact:
+    name: "CRM System Support"
+    email: "support@crm-system.com"
+  license:
+    name: "ISC"
+    url: "https://opensource.org/licenses/ISC"
+servers:
+  - url: "http://localhost:3000/api"
+    description: "Development server"
+  - url: "https://api.crm-system.com/api"
+    description: "Production server"
+components:
+  schemas:
+    AccountStatus:
+      type: "string"
+      description: "Account status values"
+    AccountType:
+      type: "string"
+      description: "Account type values"
+    UserRole:
+      type: "string"
+      description: "User role values"
+    BusinessStage:
+      type: "string"
+      description: "Business stage values"
+    Currency:
+      type: "string"
+      description: "Currency values"
+    ItemType:
+      type: "string"
+      description: "Item type values"
+    TimelineType:
+      type: "string"
+      description: "Timeline type values"
+    BusinessProposalStatus:
+      type: "string"
+      description: "Business proposal status values"
+    SupportedLocale:
+      type: "string"
+      description: "Supported locale values"
+    CreateUserRequest:
+      type: "object"
+      properties:
+        name:
+          type: "string"
+          minLength: 1
+        username:
+          type: "string"
+          minLength: 1
+          pattern: "^[a-zA-Z0-9_]+$"
+        email:
+          type: "string"
+          format: "email"
+        role:
+          type: "string"
+        manager:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+      required:
+        - name
+        - username
+        - email
+      description: "Schema for creating a new user"
+      example:
+        name: "John Doe"
+        username: "johndoe"
+        email: "john.doe@example.com"
+        role: "SALES_REP"
+        manager:
+          id: "123e4567-e89b-12d3-a456-426614174000"
+    UpdateUserRequest:
+      type: "object"
+      properties:
+        name:
+          type: "string"
+          minLength: 1
+        username:
+          type: "string"
+          minLength: 1
+          pattern: "^[a-zA-Z0-9_]+$"
+        email:
+          type: "string"
+          format: "email"
+        role:
+          type: "string"
+        manager:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+      description: "Schema for updating an existing user"
+      example:
+        name: "John Smith"
+        role: "MANAGER"
+    UserQueryParams:
+      type: "object"
+      properties:
+        filter:
+          type: "string"
+        page:
+          type: "string"
+          pattern: "^\\d+$"
+        size:
+          type: "string"
+          pattern: "^\\d+$"
+      description: "Query parameters for filtering and paginating users"
+      example:
+        filter: "role = \"SALES_REP\""
+        page: 1
+        size: 20
+    UserIdParam:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+      required:
+        - id
+      description: "Path parameter containing user ID"
+      example:
+        id: "123e4567-e89b-12d3-a456-426614174000"
+    User:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+        name:
+          type: "string"
+        username:
+          type: "string"
+        role:
+          type: "string"
+        manager:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        email:
+          type: "string"
+          format: "email"
+        createdAt:
+          type: "string"
+          format: "date-time"
+      required:
+        - id
+        - name
+        - username
+        - role
+        - email
+        - createdAt
+      description: "User entity response"
+      example:
+        id: "123e4567-e89b-12d3-a456-426614174000"
+        name: "John Doe"
+        username: "johndoe"
+        role: "SALES_REP"
+        manager:
+          id: "456e7890-e89b-12d3-a456-426614174000"
+        email: "john.doe@example.com"
+        createdAt: "2024-01-15T10:30:00.000Z"
+    PaginatedUserResponse:
+      type: "object"
+      properties:
+        contents:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              id:
+                type: "string"
+                format: "uuid"
+              name:
+                type: "string"
+              username:
+                type: "string"
+              role:
+                type: "string"
+              manager:
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                    format: "uuid"
+                required:
+                  - id
+              email:
+                type: "string"
+                format: "email"
+              createdAt:
+                type: "string"
+                format: "date-time"
+            required:
+              - id
+              - name
+              - username
+              - role
+              - email
+              - createdAt
+          description: "Array of User items"
+        totalElements:
+          type: "integer"
+          minimum: 0
+          description: "Total number of elements across all pages"
+          example: 150
+        totalPages:
+          type: "integer"
+          minimum: 0
+          description: "Total number of pages"
+          example: 8
+      required:
+        - contents
+        - totalElements
+        - totalPages
+      description: "Paginated response containing users"
+    CreateAccountRequest:
+      type: "object"
+      properties:
+        name:
+          type: "string"
+          minLength: 1
+        segment:
+          type: "string"
+          minLength: 1
+        responsible:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        status:
+          type: "string"
+        type:
+          type: "string"
+        pipeline:
+          type: "string"
+        email:
+          anyOf:
+            - type: "string"
+              format: "email"
+            - nullable: true
+            - nullable: true
+        phone:
+          anyOf:
+            - type: "string"
+              minLength: 1
+            - nullable: true
+            - nullable: true
+        cnpj:
+          anyOf:
+            - type: "string"
+              minLength: 1
+            - nullable: true
+            - nullable: true
+        instagram:
+          anyOf:
+            - type: "string"
+              format: "uri"
+            - type: "string"
+              enum:
+                -
+            - nullable: true
+            - nullable: true
+        linkedin:
+          anyOf:
+            - type: "string"
+              format: "uri"
+            - type: "string"
+              enum:
+                -
+            - nullable: true
+            - nullable: true
+        whatsapp:
+          anyOf:
+            - type: "string"
+              minLength: 1
+            - nullable: true
+            - nullable: true
+      required:
+        - name
+        - segment
+        - responsible
+      description: "Schema for creating a new account"
+      example:
+        name: "Acme Corporation"
+        segment: "Technology"
+        responsible:
+          id: "123e4567-e89b-12d3-a456-426614174000"
+        email: "contact@acme.com"
+        phone: "+55 11 99999-9999"
+    UpdateAccountRequest:
+      type: "object"
+      properties:
+        name:
+          type: "string"
+          minLength: 1
+        segment:
+          type: "string"
+          minLength: 1
+        responsible:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        status:
+          type: "string"
+        type:
+          type: "string"
+        pipeline:
+          type: "string"
+        email:
+          anyOf:
+            - type: "string"
+              format: "email"
+            - nullable: true
+            - nullable: true
+        phone:
+          anyOf:
+            - type: "string"
+              minLength: 1
+            - nullable: true
+            - nullable: true
+        cnpj:
+          anyOf:
+            - type: "string"
+              minLength: 1
+            - nullable: true
+            - nullable: true
+        instagram:
+          anyOf:
+            - type: "string"
+              format: "uri"
+            - type: "string"
+              enum:
+                -
+            - nullable: true
+            - nullable: true
+        linkedin:
+          anyOf:
+            - type: "string"
+              format: "uri"
+            - type: "string"
+              enum:
+                -
+            - nullable: true
+            - nullable: true
+        whatsapp:
+          anyOf:
+            - type: "string"
+              minLength: 1
+            - nullable: true
+            - nullable: true
+      description: "Schema for updating an existing account"
+      example:
+        name: "Acme Corp"
+        status: "ACTIVE"
+        type: "Client"
+    AccountQueryParams:
+      type: "object"
+      properties:
+        filter:
+          type: "string"
+        page:
+          type: "string"
+          pattern: "^\\d+$"
+        size:
+          type: "string"
+          pattern: "^\\d+$"
+      description: "Query parameters for filtering and paginating accounts"
+      example:
+        filter: "status = \"ACTIVE\" AND type = \"Client\""
+        page: 1
+        size: 20
+    AccountIdParam:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+      required:
+        - id
+      description: "Path parameter containing account ID"
+      example:
+        id: "123e4567-e89b-12d3-a456-426614174000"
+    Account:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+        name:
+          type: "string"
+        segment:
+          type: "string"
+        responsible:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        status:
+          type: "string"
+        type:
+          type: "string"
+        pipeline:
+          type: "string"
+        lastInteraction:
+          type: "string"
+          format: "date-time"
+        email:
+          type: "string"
+          format: "email"
+        phone:
+          type: "string"
+        cnpj:
+          type: "string"
+        instagram:
+          type: "string"
+          format: "uri"
+        linkedin:
+          type: "string"
+          format: "uri"
+        whatsapp:
+          type: "string"
+        createdAt:
+          type: "string"
+          format: "date-time"
+      required:
+        - id
+        - name
+        - segment
+        - responsible
+        - status
+        - type
+        - pipeline
+        - lastInteraction
+        - createdAt
+      description: "Account entity response"
+      example:
+        id: "123e4567-e89b-12d3-a456-426614174000"
+        name: "Acme Corporation"
+        segment: "Technology"
+        responsible:
+          id: "456e7890-e89b-12d3-a456-426614174000"
+        status: "ACTIVE"
+        type: "Client"
+        pipeline: "Sales Pipeline"
+        lastInteraction: "2024-01-15T10:30:00.000Z"
+        email: "contact@acme.com"
+        phone: "+55 11 99999-9999"
+        createdAt: "2024-01-10T08:00:00.000Z"
+    PaginatedAccountResponse:
+      type: "object"
+      properties:
+        contents:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              id:
+                type: "string"
+                format: "uuid"
+              name:
+                type: "string"
+              segment:
+                type: "string"
+              responsible:
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                    format: "uuid"
+                required:
+                  - id
+              status:
+                type: "string"
+              type:
+                type: "string"
+              pipeline:
+                type: "string"
+              lastInteraction:
+                type: "string"
+                format: "date-time"
+              email:
+                type: "string"
+                format: "email"
+              phone:
+                type: "string"
+              cnpj:
+                type: "string"
+              instagram:
+                type: "string"
+                format: "uri"
+              linkedin:
+                type: "string"
+                format: "uri"
+              whatsapp:
+                type: "string"
+              createdAt:
+                type: "string"
+                format: "date-time"
+            required:
+              - id
+              - name
+              - segment
+              - responsible
+              - status
+              - type
+              - pipeline
+              - lastInteraction
+              - createdAt
+          description: "Array of Account items"
+        totalElements:
+          type: "integer"
+          minimum: 0
+          description: "Total number of elements across all pages"
+          example: 150
+        totalPages:
+          type: "integer"
+          minimum: 0
+          description: "Total number of pages"
+          example: 8
+      required:
+        - contents
+        - totalElements
+        - totalPages
+      description: "Paginated response containing accounts"
+    CreateBusinessRequest:
+      type: "object"
+      properties:
+        title:
+          type: "string"
+          minLength: 1
+        account:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        value:
+          type: "number"
+          minimum: 0
+          exclusiveMinimum: true
+        currency:
+          type: "string"
+        stage:
+          type: "string"
+        probability:
+          type: "number"
+          minimum: 0
+          maximum: 100
+        responsible:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        closingDate:
+          type: "string"
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+      required:
+        - title
+        - account
+        - value
+        - stage
+      description: "Schema for creating a new business opportunity"
+      example:
+        title: "Software Implementation Project"
+        account:
+          id: "123e4567-e89b-12d3-a456-426614174000"
+        value: 50000
+        currency: "BRL"
+        stage: "Proposal"
+        probability: 75
+        responsible:
+          id: "456e7890-e89b-12d3-a456-426614174000"
+        closingDate: "2024-03-15"
+    UpdateBusinessRequest:
+      type: "object"
+      properties:
+        title:
+          type: "string"
+          minLength: 1
+        account:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        value:
+          type: "number"
+          minimum: 0
+          exclusiveMinimum: true
+        currency:
+          type: "string"
+        stage:
+          type: "string"
+        probability:
+          type: "number"
+          minimum: 0
+          maximum: 100
+        responsible:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        closingDate:
+          anyOf:
+            - type: "string"
+              pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+            - nullable: true
+            - nullable: true
+      description: "Schema for updating an existing business opportunity"
+      example:
+        stage: "Negotiation"
+        probability: 85
+        value: 55000
+    BusinessQueryParams:
+      type: "object"
+      properties:
+        filter:
+          type: "string"
+        page:
+          type: "string"
+          pattern: "^\\d+$"
+        size:
+          type: "string"
+          pattern: "^\\d+$"
+      description: "Query parameters for filtering and paginating business opportunities"
+      example:
+        filter: "stage = \"Proposal\" AND value > 10000"
+        page: 1
+        size: 20
+    BusinessIdParam:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+      required:
+        - id
+      description: "Path parameter containing business ID"
+      example:
+        id: "123e4567-e89b-12d3-a456-426614174000"
+    Business:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+        account:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        value:
+          type: "number"
+          minimum: 0
+          exclusiveMinimum: true
+        currency:
+          type: "string"
+        stage:
+          type: "string"
+        probability:
+          type: "number"
+          minimum: 0
+          maximum: 100
+        responsible:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        closingDate:
+          type: "string"
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+        createdAt:
+          type: "string"
+          format: "date-time"
+      required:
+        - id
+        - title
+        - account
+        - value
+        - currency
+        - stage
+        - createdAt
+      description: "Business opportunity entity response"
+      example:
+        id: "123e4567-e89b-12d3-a456-426614174000"
+        title: "Software Implementation Project"
+        account:
+          id: "456e7890-e89b-12d3-a456-426614174000"
+        value: 50000
+        currency: "BRL"
+        stage: "Proposal"
+        probability: 75
+        responsible:
+          id: "789e0123-e89b-12d3-a456-426614174000"
+        closingDate: "2024-03-15"
+        createdAt: "2024-01-10T08:00:00.000Z"
+    PaginatedBusinessResponse:
+      type: "object"
+      properties:
+        contents:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              id:
+                type: "string"
+                format: "uuid"
+              title:
+                type: "string"
+              account:
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                    format: "uuid"
+                required:
+                  - id
+              value:
+                type: "number"
+                minimum: 0
+                exclusiveMinimum: true
+              currency:
+                type: "string"
+              stage:
+                type: "string"
+              probability:
+                type: "number"
+                minimum: 0
+                maximum: 100
+              responsible:
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                    format: "uuid"
+                required:
+                  - id
+              closingDate:
+                type: "string"
+                pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+              createdAt:
+                type: "string"
+                format: "date-time"
+            required:
+              - id
+              - title
+              - account
+              - value
+              - currency
+              - stage
+              - createdAt
+          description: "Array of Business items"
+        totalElements:
+          type: "integer"
+          minimum: 0
+          description: "Total number of elements across all pages"
+          example: 150
+        totalPages:
+          type: "integer"
+          minimum: 0
+          description: "Total number of pages"
+          example: 8
+      required:
+        - contents
+        - totalElements
+        - totalPages
+      description: "Paginated response containing business opportunities"
+    CreateItemRequest:
+      type: "object"
+      properties:
+        name:
+          type: "string"
+          minLength: 1
+        type:
+          type: "string"
+        price:
+          type: "number"
+          minimum: 0
+          exclusiveMinimum: true
+        skuCode:
+          type: "string"
+          minLength: 1
+        description:
+          type: "string"
+          minLength: 1
+      required:
+        - name
+        - type
+        - price
+      description: "Schema for creating a new item"
+      example:
+        name: "Software License"
+        type: "PRODUCT"
+        price: 299.99
+        skuCode: "SW-LIC-001"
+        description: "Annual software license"
+    UpdateItemRequest:
+      type: "object"
+      properties:
+        name:
+          type: "string"
+          minLength: 1
+        type:
+          type: "string"
+        price:
+          type: "number"
+          minimum: 0
+          exclusiveMinimum: true
+        skuCode:
+          anyOf:
+            - type: "string"
+              minLength: 1
+            - nullable: true
+            - nullable: true
+        description:
+          anyOf:
+            - type: "string"
+              minLength: 1
+            - nullable: true
+            - nullable: true
+      description: "Schema for updating an existing item"
+      example:
+        price: 349.99
+        description: "Annual software license with premium support"
+    ItemQueryParams:
+      type: "object"
+      properties:
+        search:
+          type: "string"
+        type:
+          type: "string"
+        minPrice:
+          type: "string"
+          pattern: "^\\d+(\\.\\d+)?$"
+        maxPrice:
+          type: "string"
+          pattern: "^\\d+(\\.\\d+)?$"
+        filter:
+          type: "string"
+        page:
+          type: "string"
+          pattern: "^\\d+$"
+        size:
+          type: "string"
+          pattern: "^\\d+$"
+      description: "Query parameters for filtering and paginating items"
+      example:
+        search: "software"
+        type: "PRODUCT"
+        minPrice: 100
+        maxPrice: 500
+        page: 1
+        size: 20
+    ItemIdParam:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+      required:
+        - id
+      description: "Path parameter containing item ID"
+      example:
+        id: "123e4567-e89b-12d3-a456-426614174000"
+    Item:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+        name:
+          type: "string"
+        type:
+          type: "string"
+        price:
+          type: "number"
+          minimum: 0
+          exclusiveMinimum: true
+        skuCode:
+          type: "string"
+        description:
+          type: "string"
+        createdAt:
+          type: "string"
+          format: "date-time"
+      required:
+        - id
+        - name
+        - type
+        - price
+        - createdAt
+      description: "Item entity response"
+      example:
+        id: "123e4567-e89b-12d3-a456-426614174000"
+        name: "Software License"
+        type: "PRODUCT"
+        price: 299.99
+        skuCode: "SW-LIC-001"
+        description: "Annual software license"
+        createdAt: "2024-01-10T08:00:00.000Z"
+    PaginatedItemResponse:
+      type: "object"
+      properties:
+        contents:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              id:
+                type: "string"
+                format: "uuid"
+              name:
+                type: "string"
+              type:
+                type: "string"
+              price:
+                type: "number"
+                minimum: 0
+                exclusiveMinimum: true
+              skuCode:
+                type: "string"
+              description:
+                type: "string"
+              createdAt:
+                type: "string"
+                format: "date-time"
+            required:
+              - id
+              - name
+              - type
+              - price
+              - createdAt
+          description: "Array of Item items"
+        totalElements:
+          type: "integer"
+          minimum: 0
+          description: "Total number of elements across all pages"
+          example: 150
+        totalPages:
+          type: "integer"
+          minimum: 0
+          description: "Total number of pages"
+          example: 8
+      required:
+        - contents
+        - totalElements
+        - totalPages
+      description: "Paginated response containing items"
+    CreateAccountTimelineRequest:
+      type: "object"
+      properties:
+        account:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        type:
+          type: "string"
+        title:
+          type: "string"
+          minLength: 1
+        description:
+          type: "string"
+        date:
+          type: "string"
+          format: "date-time"
+        responsible:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+      required:
+        - account
+        - type
+        - title
+        - date
+        - responsible
+      description: "Schema for creating a new account timeline entry"
+      example:
+        account:
+          id: "123e4567-e89b-12d3-a456-426614174000"
+        type: "CALL"
+        title: "Follow-up call"
+        description: "Discussed project requirements and timeline"
+        date: "2024-01-15T10:30:00.000Z"
+        responsible:
+          id: "456e7890-e89b-12d3-a456-426614174000"
+    UpdateAccountTimelineRequest:
+      type: "object"
+      properties:
+        account:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        type:
+          type: "string"
+        title:
+          type: "string"
+          minLength: 1
+        description:
+          anyOf:
+            - type: "string"
+            - nullable: true
+            - nullable: true
+        date:
+          type: "string"
+          format: "date-time"
+        responsible:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+      description: "Schema for updating an existing account timeline entry"
+      example:
+        title: "Follow-up call - Updated"
+        description: "Discussed project requirements, timeline, and budget"
+    AccountTimelineQueryParams:
+      type: "object"
+      properties:
+        accountId:
+          type: "string"
+          format: "uuid"
+        type:
+          type: "string"
+        dateFrom:
+          type: "string"
+          format: "date-time"
+        dateTo:
+          type: "string"
+          format: "date-time"
+        responsibleId:
+          type: "string"
+          format: "uuid"
+        filter:
+          type: "string"
+        page:
+          type: "string"
+          pattern: "^\\d+$"
+        size:
+          type: "string"
+          pattern: "^\\d+$"
+      description: "Query parameters for filtering and paginating account timeline entries"
+      example:
+        accountId: "123e4567-e89b-12d3-a456-426614174000"
+        type: "CALL"
+        dateFrom: "2024-01-01T00:00:00.000Z"
+        dateTo: "2024-01-31T23:59:59.999Z"
+        page: 1
+        size: 20
+    AccountTimelineIdParam:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+      required:
+        - id
+      description: "Path parameter containing account timeline ID"
+      example:
+        id: "123e4567-e89b-12d3-a456-426614174000"
+    AccountTimeline:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+        account:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        type:
+          type: "string"
+        title:
+          type: "string"
+        description:
+          type: "string"
+        date:
+          type: "string"
+          format: "date-time"
+        responsible:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        createdAt:
+          type: "string"
+          format: "date-time"
+      required:
+        - id
+        - account
+        - type
+        - title
+        - date
+        - responsible
+        - createdAt
+      description: "Account timeline entry response"
+      example:
+        id: "123e4567-e89b-12d3-a456-426614174000"
+        account:
+          id: "456e7890-e89b-12d3-a456-426614174000"
+        type: "CALL"
+        title: "Follow-up call"
+        description: "Discussed project requirements and timeline"
+        date: "2024-01-15T10:30:00.000Z"
+        responsible:
+          id: "789e0123-e89b-12d3-a456-426614174000"
+        createdAt: "2024-01-15T10:35:00.000Z"
+    PaginatedAccountTimelineResponse:
+      type: "object"
+      properties:
+        contents:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              id:
+                type: "string"
+                format: "uuid"
+              account:
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                    format: "uuid"
+                required:
+                  - id
+              type:
+                type: "string"
+              title:
+                type: "string"
+              description:
+                type: "string"
+              date:
+                type: "string"
+                format: "date-time"
+              responsible:
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                    format: "uuid"
+                required:
+                  - id
+              createdAt:
+                type: "string"
+                format: "date-time"
+            required:
+              - id
+              - account
+              - type
+              - title
+              - date
+              - responsible
+              - createdAt
+          description: "Array of AccountTimeline items"
+        totalElements:
+          type: "integer"
+          minimum: 0
+          description: "Total number of elements across all pages"
+          example: 150
+        totalPages:
+          type: "integer"
+          minimum: 0
+          description: "Total number of pages"
+          example: 8
+      required:
+        - contents
+        - totalElements
+        - totalPages
+      description: "Paginated response containing account timeline entries"
+    CreateBusinessProposalRequest:
+      type: "object"
+      properties:
+        business:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        responsible:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        title:
+          type: "string"
+          minLength: 1
+        status:
+          type: "string"
+        date:
+          type: "string"
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+        value:
+          type: "number"
+          minimum: 0
+          exclusiveMinimum: true
+        content:
+          type: "string"
+        themeColor:
+          type: "string"
+          pattern: "^#[0-9A-Fa-f]{6}$"
+        termsAndConditions:
+          type: "string"
+        showUnitPrices:
+          type: "boolean"
+      required:
+        - business
+        - responsible
+        - title
+        - date
+        - value
+      description: "Schema for creating a new business proposal"
+      example:
+        business:
+          id: "123e4567-e89b-12d3-a456-426614174000"
+        responsible:
+          id: "456e7890-e89b-12d3-a456-426614174000"
+        title: "Software Implementation Proposal"
+        status: "Rascunho"
+        date: "2024-01-15"
+        value: 50000
+        content: "Detailed proposal content..."
+        themeColor: "#007bff"
+        termsAndConditions: "Standard terms and conditions..."
+        showUnitPrices: true
+    UpdateBusinessProposalRequest:
+      type: "object"
+      properties:
+        business:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        responsible:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        title:
+          type: "string"
+          minLength: 1
+        status:
+          type: "string"
+        date:
+          type: "string"
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+        value:
+          type: "number"
+          minimum: 0
+          exclusiveMinimum: true
+        content:
+          anyOf:
+            - type: "string"
+            - nullable: true
+            - nullable: true
+        themeColor:
+          anyOf:
+            - type: "string"
+              pattern: "^#[0-9A-Fa-f]{6}$"
+            - nullable: true
+            - nullable: true
+        termsAndConditions:
+          anyOf:
+            - type: "string"
+            - nullable: true
+            - nullable: true
+        showUnitPrices:
+          anyOf:
+            - type: "boolean"
+            - nullable: true
+            - nullable: true
+      description: "Schema for updating an existing business proposal"
+      example:
+        status: "Em Revisão"
+        value: 55000
+        content: "Updated proposal content..."
+    CreateBusinessProposalItemRequest:
+      type: "object"
+      properties:
+        proposal:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        item:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        name:
+          type: "string"
+          minLength: 1
+        quantity:
+          type: "number"
+          minimum: 0
+          exclusiveMinimum: true
+        unitPrice:
+          type: "number"
+          minimum: 0
+          exclusiveMinimum: true
+        discount:
+          type: "number"
+          minimum: 0
+      required:
+        - proposal
+        - item
+        - name
+        - quantity
+        - unitPrice
+      description: "Schema for creating a new business proposal item"
+      example:
+        proposal:
+          id: "123e4567-e89b-12d3-a456-426614174000"
+        item:
+          id: "456e7890-e89b-12d3-a456-426614174000"
+        name: "Software License"
+        quantity: 10
+        unitPrice: 299.99
+        discount: 500
+    UpdateBusinessProposalItemRequest:
+      type: "object"
+      properties:
+        proposal:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        item:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        name:
+          type: "string"
+          minLength: 1
+        quantity:
+          type: "number"
+          minimum: 0
+          exclusiveMinimum: true
+        unitPrice:
+          type: "number"
+          minimum: 0
+          exclusiveMinimum: true
+        discount:
+          anyOf:
+            - type: "number"
+              minimum: 0
+            - nullable: true
+            - nullable: true
+      description: "Schema for updating an existing business proposal item"
+      example:
+        quantity: 12
+        unitPrice: 279.99
+        discount: 600
+    BusinessProposalQueryParams:
+      type: "object"
+      properties:
+        search:
+          type: "string"
+        status:
+          type: "string"
+        businessId:
+          type: "string"
+          format: "uuid"
+        responsibleId:
+          type: "string"
+          format: "uuid"
+        dateFrom:
+          type: "string"
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+        dateTo:
+          type: "string"
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+        minValue:
+          type: "string"
+          pattern: "^\\d+(\\.\\d+)?$"
+        maxValue:
+          type: "string"
+          pattern: "^\\d+(\\.\\d+)?$"
+        filter:
+          type: "string"
+        page:
+          type: "string"
+          pattern: "^\\d+$"
+        size:
+          type: "string"
+          pattern: "^\\d+$"
+      description: "Query parameters for filtering and paginating business proposals"
+      example:
+        search: "software"
+        status: "Enviado"
+        businessId: "123e4567-e89b-12d3-a456-426614174000"
+        dateFrom: "2024-01-01"
+        dateTo: "2024-01-31"
+        minValue: 10000
+        maxValue: 100000
+        page: 1
+        size: 20
+    BusinessProposalItemQueryParams:
+      type: "object"
+      properties:
+        proposalId:
+          type: "string"
+          format: "uuid"
+        itemId:
+          type: "string"
+          format: "uuid"
+        search:
+          type: "string"
+        minQuantity:
+          type: "string"
+          pattern: "^\\d+(\\.\\d+)?$"
+        maxQuantity:
+          type: "string"
+          pattern: "^\\d+(\\.\\d+)?$"
+        minUnitPrice:
+          type: "string"
+          pattern: "^\\d+(\\.\\d+)?$"
+        maxUnitPrice:
+          type: "string"
+          pattern: "^\\d+(\\.\\d+)?$"
+        filter:
+          type: "string"
+        page:
+          type: "string"
+          pattern: "^\\d+$"
+        size:
+          type: "string"
+          pattern: "^\\d+$"
+      description: "Query parameters for filtering and paginating business proposal items"
+      example:
+        proposalId: "123e4567-e89b-12d3-a456-426614174000"
+        search: "license"
+        minQuantity: 1
+        maxQuantity: 100
+        page: 1
+        size: 20
+    BusinessProposalIdParam:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+      required:
+        - id
+      description: "Path parameter containing business proposal ID"
+      example:
+        id: "123e4567-e89b-12d3-a456-426614174000"
+    BusinessProposalItemIdParam:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+      required:
+        - id
+      description: "Path parameter containing business proposal item ID"
+      example:
+        id: "123e4567-e89b-12d3-a456-426614174000"
+    ProposalIdParam:
+      type: "object"
+      properties:
+        proposalId:
+          type: "string"
+          format: "uuid"
+      required:
+        - proposalId
+      description: "Path parameter containing proposal ID for nested routes"
+      example:
+        proposalId: "123e4567-e89b-12d3-a456-426614174000"
+    BusinessProposal:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+        business:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        responsible:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        title:
+          type: "string"
+        status:
+          type: "string"
+        date:
+          type: "string"
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+        value:
+          type: "number"
+          minimum: 0
+          exclusiveMinimum: true
+        content:
+          type: "string"
+        themeColor:
+          type: "string"
+          pattern: "^#[0-9A-Fa-f]{6}$"
+        termsAndConditions:
+          type: "string"
+        showUnitPrices:
+          type: "boolean"
+        createdAt:
+          type: "string"
+          format: "date-time"
+      required:
+        - id
+        - business
+        - responsible
+        - title
+        - status
+        - date
+        - value
+        - createdAt
+      description: "Business proposal entity response"
+      example:
+        id: "123e4567-e89b-12d3-a456-426614174000"
+        business:
+          id: "456e7890-e89b-12d3-a456-426614174000"
+        responsible:
+          id: "789e0123-e89b-12d3-a456-426614174000"
+        title: "Software Implementation Proposal"
+        status: "Enviado"
+        date: "2024-01-15"
+        value: 50000
+        content: "Detailed proposal content..."
+        themeColor: "#007bff"
+        termsAndConditions: "Standard terms and conditions..."
+        showUnitPrices: true
+        createdAt: "2024-01-10T08:00:00.000Z"
+    BusinessProposalItem:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+        proposal:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        item:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+              format: "uuid"
+          required:
+            - id
+        name:
+          type: "string"
+        quantity:
+          type: "number"
+          minimum: 0
+          exclusiveMinimum: true
+        unitPrice:
+          type: "number"
+          minimum: 0
+          exclusiveMinimum: true
+        discount:
+          type: "number"
+          minimum: 0
+        total:
+          type: "number"
+          minimum: 0
+        createdAt:
+          type: "string"
+          format: "date-time"
+      required:
+        - id
+        - proposal
+        - item
+        - name
+        - quantity
+        - unitPrice
+        - total
+        - createdAt
+      description: "Business proposal item entity response"
+      example:
+        id: "123e4567-e89b-12d3-a456-426614174000"
+        proposal:
+          id: "456e7890-e89b-12d3-a456-426614174000"
+        item:
+          id: "789e0123-e89b-12d3-a456-426614174000"
+        name: "Software License"
+        quantity: 10
+        unitPrice: 299.99
+        discount: 500
+        total: 2499.9
+        createdAt: "2024-01-10T08:00:00.000Z"
+    PaginatedBusinessProposalResponse:
+      type: "object"
+      properties:
+        contents:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              id:
+                type: "string"
+                format: "uuid"
+              business:
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                    format: "uuid"
+                required:
+                  - id
+              responsible:
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                    format: "uuid"
+                required:
+                  - id
+              title:
+                type: "string"
+              status:
+                type: "string"
+              date:
+                type: "string"
+                pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+              value:
+                type: "number"
+                minimum: 0
+                exclusiveMinimum: true
+              content:
+                type: "string"
+              themeColor:
+                type: "string"
+                pattern: "^#[0-9A-Fa-f]{6}$"
+              termsAndConditions:
+                type: "string"
+              showUnitPrices:
+                type: "boolean"
+              createdAt:
+                type: "string"
+                format: "date-time"
+            required:
+              - id
+              - business
+              - responsible
+              - title
+              - status
+              - date
+              - value
+              - createdAt
+          description: "Array of BusinessProposal items"
+        totalElements:
+          type: "integer"
+          minimum: 0
+          description: "Total number of elements across all pages"
+          example: 150
+        totalPages:
+          type: "integer"
+          minimum: 0
+          description: "Total number of pages"
+          example: 8
+      required:
+        - contents
+        - totalElements
+        - totalPages
+      description: "Paginated response containing business proposals"
+    PaginatedBusinessProposalItemResponse:
+      type: "object"
+      properties:
+        contents:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              id:
+                type: "string"
+                format: "uuid"
+              proposal:
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                    format: "uuid"
+                required:
+                  - id
+              item:
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                    format: "uuid"
+                required:
+                  - id
+              name:
+                type: "string"
+              quantity:
+                type: "number"
+                minimum: 0
+                exclusiveMinimum: true
+              unitPrice:
+                type: "number"
+                minimum: 0
+                exclusiveMinimum: true
+              discount:
+                type: "number"
+                minimum: 0
+              total:
+                type: "number"
+                minimum: 0
+              createdAt:
+                type: "string"
+                format: "date-time"
+            required:
+              - id
+              - proposal
+              - item
+              - name
+              - quantity
+              - unitPrice
+              - total
+              - createdAt
+          description: "Array of BusinessProposalItem items"
+        totalElements:
+          type: "integer"
+          minimum: 0
+          description: "Total number of elements across all pages"
+          example: 150
+        totalPages:
+          type: "integer"
+          minimum: 0
+          description: "Total number of pages"
+          example: 8
+      required:
+        - contents
+        - totalElements
+        - totalPages
+      description: "Paginated response containing business proposal items"
+    DashboardQueryParams:
+      type: "object"
+      properties:
+        period:
+          type: "string"
+      required:
+        - period
+      description: "Query parameters for dashboard endpoints"
+      example:
+        period: "THIS_MONTH"
+    RevenuePerPeriodQueryParams:
+      type: "object"
+      properties:
+        period:
+          type: "string"
+          default: "THIS_YEAR"
+      description: "Query parameters for revenue per period endpoint (period is optional, defaults to THIS_YEAR)"
+      example:
+        period: "THIS_YEAR"
+    MonthlyRevenueResponse:
+      type: "object"
+      additionalProperties:
+        type: "number"
+        minimum: 0
+      description: "Monthly revenue data response"
+      example:
+        Janeiro: 45000
+        Fevereiro: 52000
+        Março: 48000
+    MoreSalesByResponsibleResponse:
+      type: "array"
+      items:
+        type: "object"
+        properties:
+          responsibleId:
+            type: "string"
+            minLength: 1
+          responsibleName:
+            type: "string"
+            minLength: 1
+          saleValue:
+            type: "number"
+            minimum: 0
+          closedDealsCount:
+            type: "integer"
+            minimum: 0
+        required:
+          - responsibleId
+          - responsibleName
+          - saleValue
+          - closedDealsCount
+      description: "Sales data grouped by responsible person"
+      example:
+        - responsibleId: "123e4567-e89b-12d3-a456-426614174000"
+          responsibleName: "John Doe"
+          saleValue: 125000
+          closedDealsCount: 8
+        - responsibleId: "456e7890-e89b-12d3-a456-426614174000"
+          responsibleName: "Jane Smith"
+          saleValue: 98000
+          closedDealsCount: 6
+    SalesFunnelResponse:
+      type: "object"
+      additionalProperties:
+        type: "integer"
+        minimum: 0
+      description: "Sales funnel data by stage"
+      example:
+        Prospecting: 25
+        Qualification: 18
+        Proposal: 12
+        Negotiation: 8
+        Closed Won: 15
+        Closed Lost: 5
+    TotalRevenueResponse:
+      type: "object"
+      properties:
+        total:
+          type: "number"
+          minimum: 0
+      required:
+        - total
+      description: "Total revenue response"
+      example:
+        total: 245000
+    ActiveAccountsResponse:
+      type: "object"
+      properties:
+        total:
+          type: "integer"
+          minimum: 0
+      required:
+        - total
+      description: "Active accounts count response"
+      example:
+        total: 156
+    NewBusinessResponse:
+      type: "object"
+      properties:
+        count:
+          type: "integer"
+          minimum: 0
+      required:
+        - count
+      description: "New business count response"
+      example:
+        count: 23
+    ErrorResponse:
+      type: "object"
+      properties:
+        message:
+          type: "string"
+          description: "Error message"
+          example: "Internal server error"
+        status:
+          type: "integer"
+          description: "HTTP status code"
+          example: 500
+        requestId:
+          type: "string"
+          format: "uuid"
+          description: "Unique request identifier for debugging"
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      required:
+        - message
+        - status
+      description: "Standard error response"
+    ValidationErrorResponse:
+      type: "object"
+      properties:
+        message:
+          type: "string"
+          description: "Error message"
+          example: "Validation failed"
+        status:
+          type: "integer"
+          description: "HTTP status code"
+          example: 400
+        errors:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              field:
+                type: "string"
+                description: "Field name that failed validation"
+                example: "name"
+              message:
+                type: "string"
+                description: "Validation error message for the field"
+                example: "Name is required"
+            required:
+              - field
+              - message
+          description: "Array of field-specific validation errors"
+        requestId:
+          type: "string"
+          format: "uuid"
+          description: "Unique request identifier for debugging"
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      required:
+        - message
+        - status
+        - errors
+      description: "Validation error response with field-specific messages"
+    NotFoundErrorResponse:
+      type: "object"
+      properties:
+        message:
+          type: "string"
+          description: "Error message"
+          example: "Resource not found"
+        status:
+          type: "integer"
+          description: "HTTP status code"
+          example: 404
+        requestId:
+          type: "string"
+          format: "uuid"
+          description: "Unique request identifier for debugging"
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      required:
+        - message
+        - status
+      description: "Resource not found error response"
+    UnauthorizedErrorResponse:
+      type: "object"
+      properties:
+        message:
+          type: "string"
+          description: "Error message"
+          example: "Unauthorized"
+        status:
+          type: "integer"
+          description: "HTTP status code"
+          example: 401
+        requestId:
+          type: "string"
+          format: "uuid"
+          description: "Unique request identifier for debugging"
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      required:
+        - message
+        - status
+      description: "Unauthorized error response"
+  parameters:
+    PageParam:
+      name: "page"
+      in: "query"
+      description: "Page number for pagination (starts from 1)"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+      example: 1
+      examples:
+        firstPage:
+          value: 1
+          summary: "First page"
+          description: "Get the first page of results"
+        middlePage:
+          value: 5
+          summary: "Middle page"
+          description: "Get results from page 5"
+        lastPage:
+          value: 10
+          summary: "Last page"
+          description: "Get the last page of results"
+    SizeParam:
+      name: "size"
+      in: "query"
+      description: "Number of items per page (maximum 100)"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 100
+        default: 20
+      example: 20
+      examples:
+        small:
+          value: 10
+          summary: "Small page size"
+          description: "10 items per page for detailed viewing"
+        default:
+          value: 20
+          summary: "Default page size"
+          description: "Standard 20 items per page"
+        large:
+          value: 50
+          summary: "Large page size"
+          description: "50 items per page for overview"
+        maximum:
+          value: 100
+          summary: "Maximum page size"
+          description: "Maximum allowed 100 items per page"
+    FilterParam:
+      name: "filter"
+      in: "query"
+      description: "Dynamic filter parameter using SQL-like syntax. Supports operators: =, !=, >, <, >=, <=, LIKE, IN, AND, OR"
+      required: false
+      schema:
+        type: "string"
+      example: "status = \"ACTIVE\" AND type = \"Client\""
+      examples:
+        simple:
+          value: "status = \"ACTIVE\""
+          summary: "Simple equality filter"
+          description: "Filter by single field value"
+        multiple:
+          value: "status = \"ACTIVE\" AND type = \"Client\""
+          summary: "Multiple conditions with AND"
+          description: "Combine multiple filters with AND operator"
+        pattern:
+          value: "name LIKE \"%Corp%\""
+          summary: "Pattern matching"
+          description: "Use LIKE operator for text pattern matching"
+        range:
+          value: "value >= 10000 AND value <= 50000"
+          summary: "Numeric range"
+          description: "Filter by numeric range using comparison operators"
+        date:
+          value: "createdAt >= \"2024-01-01T00:00:00.000Z\""
+          summary: "Date filtering"
+          description: "Filter by date using ISO 8601 format"
+        complex:
+          value: "(status = \"ACTIVE\" OR status = \"PENDING\") AND value > 5000"
+          summary: "Complex conditions"
+          description: "Use parentheses for complex logical grouping"
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+      description: "JWT token for authentication. Include the token in the Authorization header as: Bearer <token>"
+  responses:
+    UnauthorizedError:
+      description: "Authentication information is missing or invalid"
+      content:
+        application/json:
+          schema:
+            type: "object"
+            properties:
+              message:
+                type: "string"
+                example: "Unauthorized"
+              status:
+                type: "integer"
+                example: 401
+    ValidationError:
+      description: "Validation error with field-specific messages"
+      content:
+        application/json:
+          schema:
+            type: "object"
+            properties:
+              message:
+                type: "string"
+                example: "Validation failed"
+              status:
+                type: "integer"
+                example: 400
+              errors:
+                type: "array"
+                items:
+                  type: "object"
+                  properties:
+                    field:
+                      type: "string"
+                      example: "name"
+                    message:
+                      type: "string"
+                      example: "Name is required"
+    NotFoundError:
+      description: "Resource not found"
+      content:
+        application/json:
+          schema:
+            type: "object"
+            properties:
+              message:
+                type: "string"
+                example: "Resource not found"
+              status:
+                type: "integer"
+                example: 404
+    InternalServerError:
+      description: "Internal server error"
+      content:
+        application/json:
+          schema:
+            type: "object"
+            properties:
+              message:
+                type: "string"
+                example: "Internal server error"
+              status:
+                type: "integer"
+                example: 500
+security:
+  - bearerAuth:
+tags:
+  - name: "Users"
+    description: "User management operations"
+  - name: "Accounts"
+    description: "Account management operations"
+  - name: "Business"
+    description: "Business opportunity management operations"
+  - name: "Items"
+    description: "Item catalog management operations"
+  - name: "Account Timeline"
+    description: "Account timeline and interaction history operations"
+  - name: "Business Proposals"
+    description: "Business proposal management operations"
+  - name: "Business Proposal Items"
+    description: "Business proposal item management operations"
+  - name: "Dashboard"
+    description: "Dashboard analytics and reporting endpoints"
+paths:
+  /api/users:
+    post:
+      operationId: "createUser"
+      summary: "Create new user"
+      description: "Creates a new user record in the system"
+      tags:
+        - Users
+      parameters:
+      security:
+        - bearerAuth:
+      requestBody:
+        description: "User data to create"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        201:
+          description: "User created successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        400:
+          description: "Validation error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ValidationError"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+    get:
+      operationId: "getUsers"
+      summary: "Get all users"
+      description: "Retrieves a paginated list of users with optional filtering\n\n**Example URLs:**\n- **Basic pagination**: `/api/users?page=1&size=20` - Get first page with 20 items\n- **Custom page size**: `/api/users?page=2&size=50` - Get second page with 50 items"
+      tags:
+        - Users
+      parameters:
+        - name: "filter"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+          description: "Dynamic filter parameter using SQL-like syntax. Supports operators: =, !=, >, <, >=, <=, LIKE, ILIKE, IN, NOT IN, AND, OR. Use parentheses for complex logical grouping."
+          example: "status = \"ACTIVE\" AND type = \"Client\""
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            default: 1
+          description: "Page number for pagination (starts from 1)"
+          example: 1
+        - name: "size"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: "Number of items per page (maximum 100)"
+          example: 20
+      security:
+        - bearerAuth:
+      responses:
+        200:
+          description: "Paginated list of users"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedUserResponse"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+  /api/users/{id}:
+    get:
+      operationId: "getUserById"
+      summary: "Get user by ID"
+      description: "Retrieves a specific user by its unique identifier\n\n**Example URLs:**\n- **Basic pagination**: `/api/users/{id}?page=1&size=20` - Get first page with 20 items\n- **Custom page size**: `/api/users/{id}?page=2&size=50` - Get second page with 50 items"
+      tags:
+        - Users
+      parameters:
+        - name: "filter"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+          description: "Dynamic filter parameter using SQL-like syntax. Supports operators: =, !=, >, <, >=, <=, LIKE, ILIKE, IN, NOT IN, AND, OR. Use parentheses for complex logical grouping."
+          example: "status = \"ACTIVE\" AND type = \"Client\""
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            default: 1
+          description: "Page number for pagination (starts from 1)"
+          example: 1
+        - name: "size"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: "Number of items per page (maximum 100)"
+          example: 20
+      security:
+        - bearerAuth:
+      responses:
+        200:
+          description: "User found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "User not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"
+    put:
+      operationId: "updateUser"
+      summary: "Update user"
+      description: "Updates an existing user with new data"
+      tags:
+        - Users
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+          description: "User unique identifier"
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      security:
+        - bearerAuth:
+      requestBody:
+        description: "Updated user data"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        200:
+          description: "User updated successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        400:
+          description: "Validation error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ValidationError"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "User not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"
+    delete:
+      operationId: "deleteUser"
+      summary: "Delete user"
+      description: "Deletes an existing user from the system"
+      tags:
+        - Users
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+          description: "User unique identifier"
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      security:
+        - bearerAuth:
+      responses:
+        204:
+          description: "User deleted successfully"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "User not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"
+  /api/accounts:
+    post:
+      operationId: "createAccount"
+      summary: "Create new account"
+      description: "Creates a new account record in the system"
+      tags:
+        - Accounts
+      parameters:
+      security:
+        - bearerAuth:
+      requestBody:
+        description: "Account data to create"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccountRequest"
+      responses:
+        201:
+          description: "Account created successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        400:
+          description: "Validation error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ValidationError"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+    get:
+      operationId: "getAccounts"
+      summary: "Get all accounts"
+      description: "Retrieves a paginated list of accounts with optional filtering\n\n**Example URLs:**\n- **Basic pagination**: `/api/accounts?page=1&size=20` - Get first page with 20 items\n- **Custom page size**: `/api/accounts?page=2&size=50` - Get second page with 50 items\n- **Filter active clients**: `/api/accounts?filter=status = \"ACTIVE\" AND type = \"Client\"` - Get only active client accounts\n- **Search by segment with pagination**: `/api/accounts?filter=segment LIKE \"%Tech%\" AND page=1&size=10` - Search technology segment accounts with small page size"
+      tags:
+        - Accounts
+      parameters:
+        - name: "filter"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+          description: "Dynamic filter parameter using SQL-like syntax. Supports operators: =, !=, >, <, >=, <=, LIKE, ILIKE, IN, NOT IN, AND, OR. Use parentheses for complex logical grouping."
+          example: "status = \"ACTIVE\" AND type = \"Client\""
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            default: 1
+          description: "Page number for pagination (starts from 1)"
+          example: 1
+        - name: "size"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: "Number of items per page (maximum 100)"
+          example: 20
+      security:
+        - bearerAuth:
+      responses:
+        200:
+          description: "Paginated list of accounts"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedAccountResponse"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+  /api/accounts/{id}:
+    get:
+      operationId: "getAccountById"
+      summary: "Get account by ID"
+      description: "Retrieves a specific account by its unique identifier\n\n**Example URLs:**\n- **Basic pagination**: `/api/accounts/{id}?page=1&size=20` - Get first page with 20 items\n- **Custom page size**: `/api/accounts/{id}?page=2&size=50` - Get second page with 50 items\n- **Filter active clients**: `/api/accounts/{id}?filter=status = \"ACTIVE\" AND type = \"Client\"` - Get only active client accounts\n- **Search by segment with pagination**: `/api/accounts/{id}?filter=segment LIKE \"%Tech%\" AND page=1&size=10` - Search technology segment accounts with small page size"
+      tags:
+        - Accounts
+      parameters:
+        - name: "filter"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+          description: "Dynamic filter parameter using SQL-like syntax. Supports operators: =, !=, >, <, >=, <=, LIKE, ILIKE, IN, NOT IN, AND, OR. Use parentheses for complex logical grouping."
+          example: "status = \"ACTIVE\" AND type = \"Client\""
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            default: 1
+          description: "Page number for pagination (starts from 1)"
+          example: 1
+        - name: "size"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: "Number of items per page (maximum 100)"
+          example: 20
+      security:
+        - bearerAuth:
+      responses:
+        200:
+          description: "Account found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "Account not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"
+    put:
+      operationId: "updateAccount"
+      summary: "Update account"
+      description: "Updates an existing account with new data"
+      tags:
+        - Accounts
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+          description: "Account unique identifier"
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      security:
+        - bearerAuth:
+      requestBody:
+        description: "Updated account data"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAccountRequest"
+      responses:
+        200:
+          description: "Account updated successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        400:
+          description: "Validation error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ValidationError"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "Account not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"
+    delete:
+      operationId: "deleteAccount"
+      summary: "Delete account"
+      description: "Deletes an existing account from the system"
+      tags:
+        - Accounts
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+          description: "Account unique identifier"
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      security:
+        - bearerAuth:
+      responses:
+        204:
+          description: "Account deleted successfully"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "Account not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"
+  /api/business:
+    post:
+      operationId: "createBusiness"
+      summary: "Create new business"
+      description: "Creates a new business record in the system"
+      tags:
+        - Business
+      parameters:
+      security:
+        - bearerAuth:
+      requestBody:
+        description: "Business data to create"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBusinessRequest"
+      responses:
+        201:
+          description: "Business created successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Business"
+        400:
+          description: "Validation error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ValidationError"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+    get:
+      operationId: "getBusinesss"
+      summary: "Get all businesses"
+      description: "Retrieves a paginated list of businesses with optional filtering\n\n**Example URLs:**\n- **Basic pagination**: `/api/business?page=1&size=20` - Get first page with 20 items\n- **Custom page size**: `/api/business?page=2&size=50` - Get second page with 50 items\n- **High-value opportunities**: `/api/business?filter=value >= 50000 AND stage = \"Negotiation\"` - Get high-value opportunities in negotiation stage\n- **BRL opportunities this year**: `/api/business?filter=currency = \"BRL\" AND createdAt >= \"2024-01-01\"` - Get BRL opportunities created this year"
+      tags:
+        - Business
+      parameters:
+        - name: "filter"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+          description: "Dynamic filter parameter using SQL-like syntax. Supports operators: =, !=, >, <, >=, <=, LIKE, ILIKE, IN, NOT IN, AND, OR. Use parentheses for complex logical grouping."
+          example: "status = \"ACTIVE\" AND type = \"Client\""
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            default: 1
+          description: "Page number for pagination (starts from 1)"
+          example: 1
+        - name: "size"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: "Number of items per page (maximum 100)"
+          example: 20
+      security:
+        - bearerAuth:
+      responses:
+        200:
+          description: "Paginated list of businesses"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedBusinessResponse"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+  /api/business/{id}:
+    get:
+      operationId: "getBusinessById"
+      summary: "Get business by ID"
+      description: "Retrieves a specific business by its unique identifier\n\n**Example URLs:**\n- **Basic pagination**: `/api/business/{id}?page=1&size=20` - Get first page with 20 items\n- **Custom page size**: `/api/business/{id}?page=2&size=50` - Get second page with 50 items\n- **High-value opportunities**: `/api/business/{id}?filter=value >= 50000 AND stage = \"Negotiation\"` - Get high-value opportunities in negotiation stage\n- **BRL opportunities this year**: `/api/business/{id}?filter=currency = \"BRL\" AND createdAt >= \"2024-01-01\"` - Get BRL opportunities created this year"
+      tags:
+        - Business
+      parameters:
+        - name: "filter"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+          description: "Dynamic filter parameter using SQL-like syntax. Supports operators: =, !=, >, <, >=, <=, LIKE, ILIKE, IN, NOT IN, AND, OR. Use parentheses for complex logical grouping."
+          example: "status = \"ACTIVE\" AND type = \"Client\""
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            default: 1
+          description: "Page number for pagination (starts from 1)"
+          example: 1
+        - name: "size"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: "Number of items per page (maximum 100)"
+          example: 20
+      security:
+        - bearerAuth:
+      responses:
+        200:
+          description: "Business found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Business"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "Business not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"
+    put:
+      operationId: "updateBusiness"
+      summary: "Update business"
+      description: "Updates an existing business with new data"
+      tags:
+        - Business
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+          description: "Business unique identifier"
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      security:
+        - bearerAuth:
+      requestBody:
+        description: "Updated business data"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBusinessRequest"
+      responses:
+        200:
+          description: "Business updated successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Business"
+        400:
+          description: "Validation error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ValidationError"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "Business not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"
+    delete:
+      operationId: "deleteBusiness"
+      summary: "Delete business"
+      description: "Deletes an existing business from the system"
+      tags:
+        - Business
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+          description: "Business unique identifier"
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      security:
+        - bearerAuth:
+      responses:
+        204:
+          description: "Business deleted successfully"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "Business not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"
+  /api/items:
+    post:
+      operationId: "createItem"
+      summary: "Create new item"
+      description: "Creates a new item record in the system"
+      tags:
+        - Items
+      parameters:
+      security:
+        - bearerAuth:
+      requestBody:
+        description: "Item data to create"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateItemRequest"
+      responses:
+        201:
+          description: "Item created successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Item"
+        400:
+          description: "Validation error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ValidationError"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+    get:
+      operationId: "getItems"
+      summary: "Get all items"
+      description: "Retrieves a paginated list of items with optional filtering\n\n**Example URLs:**\n- **Basic pagination**: `/api/items?page=1&size=20` - Get first page with 20 items\n- **Custom page size**: `/api/items?page=2&size=50` - Get second page with 50 items\n- **Search products by name**: `/api/items?search=software&type=Product` - Search for software products\n- **Price range filter**: `/api/items?minPrice=100&maxPrice=1000&page=1&size=25` - Get items in price range $100-$1000"
+      tags:
+        - Items
+      parameters:
+        - name: "filter"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+          description: "Dynamic filter parameter using SQL-like syntax. Supports operators: =, !=, >, <, >=, <=, LIKE, ILIKE, IN, NOT IN, AND, OR. Use parentheses for complex logical grouping."
+          example: "status = \"ACTIVE\" AND type = \"Client\""
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            default: 1
+          description: "Page number for pagination (starts from 1)"
+          example: 1
+        - name: "size"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: "Number of items per page (maximum 100)"
+          example: 20
+      security:
+        - bearerAuth:
+      responses:
+        200:
+          description: "Paginated list of items"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedItemResponse"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+  /api/items/{id}:
+    get:
+      operationId: "getItemById"
+      summary: "Get item by ID"
+      description: "Retrieves a specific item by its unique identifier\n\n**Example URLs:**\n- **Basic pagination**: `/api/items/{id}?page=1&size=20` - Get first page with 20 items\n- **Custom page size**: `/api/items/{id}?page=2&size=50` - Get second page with 50 items\n- **Search products by name**: `/api/items/{id}?search=software&type=Product` - Search for software products\n- **Price range filter**: `/api/items/{id}?minPrice=100&maxPrice=1000&page=1&size=25` - Get items in price range $100-$1000"
+      tags:
+        - Items
+      parameters:
+        - name: "filter"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+          description: "Dynamic filter parameter using SQL-like syntax. Supports operators: =, !=, >, <, >=, <=, LIKE, ILIKE, IN, NOT IN, AND, OR. Use parentheses for complex logical grouping."
+          example: "status = \"ACTIVE\" AND type = \"Client\""
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            default: 1
+          description: "Page number for pagination (starts from 1)"
+          example: 1
+        - name: "size"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: "Number of items per page (maximum 100)"
+          example: 20
+      security:
+        - bearerAuth:
+      responses:
+        200:
+          description: "Item found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Item"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "Item not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"
+    put:
+      operationId: "updateItem"
+      summary: "Update item"
+      description: "Updates an existing item with new data"
+      tags:
+        - Items
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+          description: "Item unique identifier"
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      security:
+        - bearerAuth:
+      requestBody:
+        description: "Updated item data"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateItemRequest"
+      responses:
+        200:
+          description: "Item updated successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Item"
+        400:
+          description: "Validation error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ValidationError"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "Item not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"
+    delete:
+      operationId: "deleteItem"
+      summary: "Delete item"
+      description: "Deletes an existing item from the system"
+      tags:
+        - Items
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+          description: "Item unique identifier"
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      security:
+        - bearerAuth:
+      responses:
+        204:
+          description: "Item deleted successfully"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "Item not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"
+  /api/account-timeline:
+    post:
+      operationId: "createAccountTimeline"
+      summary: "Create new accounttimeline"
+      description: "Creates a new accounttimeline record in the system"
+      tags:
+        - Account Timeline
+      parameters:
+      security:
+        - bearerAuth:
+      requestBody:
+        description: "AccountTimeline data to create"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccountTimelineRequest"
+      responses:
+        201:
+          description: "AccountTimeline created successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountTimeline"
+        400:
+          description: "Validation error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ValidationError"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+    get:
+      operationId: "getAccountTimelines"
+      summary: "Get all accounttimelines"
+      description: "Retrieves a paginated list of accounttimelines with optional filtering\n\n**Example URLs:**\n- **Basic pagination**: `/api/account-timeline?page=1&size=20` - Get first page with 20 items\n- **Custom page size**: `/api/account-timeline?page=2&size=50` - Get second page with 50 items"
+      tags:
+        - Account Timeline
+      parameters:
+        - name: "filter"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+          description: "Dynamic filter parameter using SQL-like syntax. Supports operators: =, !=, >, <, >=, <=, LIKE, ILIKE, IN, NOT IN, AND, OR. Use parentheses for complex logical grouping."
+          example: "status = \"ACTIVE\" AND type = \"Client\""
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            default: 1
+          description: "Page number for pagination (starts from 1)"
+          example: 1
+        - name: "size"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: "Number of items per page (maximum 100)"
+          example: 20
+      security:
+        - bearerAuth:
+      responses:
+        200:
+          description: "Paginated list of accounttimelines"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedAccountTimelineResponse"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+  /api/account-timeline/{id}:
+    get:
+      operationId: "getAccountTimelineById"
+      summary: "Get accounttimeline by ID"
+      description: "Retrieves a specific accounttimeline by its unique identifier\n\n**Example URLs:**\n- **Basic pagination**: `/api/account-timeline/{id}?page=1&size=20` - Get first page with 20 items\n- **Custom page size**: `/api/account-timeline/{id}?page=2&size=50` - Get second page with 50 items"
+      tags:
+        - Account Timeline
+      parameters:
+        - name: "filter"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+          description: "Dynamic filter parameter using SQL-like syntax. Supports operators: =, !=, >, <, >=, <=, LIKE, ILIKE, IN, NOT IN, AND, OR. Use parentheses for complex logical grouping."
+          example: "status = \"ACTIVE\" AND type = \"Client\""
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            default: 1
+          description: "Page number for pagination (starts from 1)"
+          example: 1
+        - name: "size"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: "Number of items per page (maximum 100)"
+          example: 20
+      security:
+        - bearerAuth:
+      responses:
+        200:
+          description: "AccountTimeline found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountTimeline"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "AccountTimeline not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"
+    put:
+      operationId: "updateAccountTimeline"
+      summary: "Update accounttimeline"
+      description: "Updates an existing accounttimeline with new data"
+      tags:
+        - Account Timeline
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+          description: "AccountTimeline unique identifier"
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      security:
+        - bearerAuth:
+      requestBody:
+        description: "Updated accounttimeline data"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAccountTimelineRequest"
+      responses:
+        200:
+          description: "AccountTimeline updated successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountTimeline"
+        400:
+          description: "Validation error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ValidationError"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "AccountTimeline not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"
+    delete:
+      operationId: "deleteAccountTimeline"
+      summary: "Delete accounttimeline"
+      description: "Deletes an existing accounttimeline from the system"
+      tags:
+        - Account Timeline
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+          description: "AccountTimeline unique identifier"
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      security:
+        - bearerAuth:
+      responses:
+        204:
+          description: "AccountTimeline deleted successfully"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "AccountTimeline not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"
+  /api/business-proposals:
+    post:
+      operationId: "createBusinessProposal"
+      summary: "Create new businessproposal"
+      description: "Creates a new businessproposal record in the system"
+      tags:
+        - Business Proposals
+      parameters:
+      security:
+        - bearerAuth:
+      requestBody:
+        description: "BusinessProposal data to create"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBusinessProposalRequest"
+      responses:
+        201:
+          description: "BusinessProposal created successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessProposal"
+        400:
+          description: "Validation error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ValidationError"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+    get:
+      operationId: "getBusinessProposals"
+      summary: "Get all businessproposals"
+      description: "Retrieves a paginated list of businessproposals with optional filtering\n\n**Example URLs:**\n- **Basic pagination**: `/api/business-proposals?page=1&size=20` - Get first page with 20 items\n- **Custom page size**: `/api/business-proposals?page=2&size=50` - Get second page with 50 items\n- **High-value opportunities**: `/api/business-proposals?filter=value >= 50000 AND stage = \"Negotiation\"` - Get high-value opportunities in negotiation stage\n- **BRL opportunities this year**: `/api/business-proposals?filter=currency = \"BRL\" AND createdAt >= \"2024-01-01\"` - Get BRL opportunities created this year"
+      tags:
+        - Business Proposals
+      parameters:
+        - name: "filter"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+          description: "Dynamic filter parameter using SQL-like syntax. Supports operators: =, !=, >, <, >=, <=, LIKE, ILIKE, IN, NOT IN, AND, OR. Use parentheses for complex logical grouping."
+          example: "status = \"ACTIVE\" AND type = \"Client\""
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            default: 1
+          description: "Page number for pagination (starts from 1)"
+          example: 1
+        - name: "size"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: "Number of items per page (maximum 100)"
+          example: 20
+      security:
+        - bearerAuth:
+      responses:
+        200:
+          description: "Paginated list of businessproposals"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedBusinessProposalResponse"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+  /api/business-proposals/{id}:
+    get:
+      operationId: "getBusinessProposalById"
+      summary: "Get businessproposal by ID"
+      description: "Retrieves a specific businessproposal by its unique identifier\n\n**Example URLs:**\n- **Basic pagination**: `/api/business-proposals/{id}?page=1&size=20` - Get first page with 20 items\n- **Custom page size**: `/api/business-proposals/{id}?page=2&size=50` - Get second page with 50 items\n- **High-value opportunities**: `/api/business-proposals/{id}?filter=value >= 50000 AND stage = \"Negotiation\"` - Get high-value opportunities in negotiation stage\n- **BRL opportunities this year**: `/api/business-proposals/{id}?filter=currency = \"BRL\" AND createdAt >= \"2024-01-01\"` - Get BRL opportunities created this year"
+      tags:
+        - Business Proposals
+      parameters:
+        - name: "filter"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+          description: "Dynamic filter parameter using SQL-like syntax. Supports operators: =, !=, >, <, >=, <=, LIKE, ILIKE, IN, NOT IN, AND, OR. Use parentheses for complex logical grouping."
+          example: "status = \"ACTIVE\" AND type = \"Client\""
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            default: 1
+          description: "Page number for pagination (starts from 1)"
+          example: 1
+        - name: "size"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: "Number of items per page (maximum 100)"
+          example: 20
+      security:
+        - bearerAuth:
+      responses:
+        200:
+          description: "BusinessProposal found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessProposal"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "BusinessProposal not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"
+    put:
+      operationId: "updateBusinessProposal"
+      summary: "Update businessproposal"
+      description: "Updates an existing businessproposal with new data"
+      tags:
+        - Business Proposals
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+          description: "BusinessProposal unique identifier"
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      security:
+        - bearerAuth:
+      requestBody:
+        description: "Updated businessproposal data"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBusinessProposalRequest"
+      responses:
+        200:
+          description: "BusinessProposal updated successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessProposal"
+        400:
+          description: "Validation error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ValidationError"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "BusinessProposal not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"
+    delete:
+      operationId: "deleteBusinessProposal"
+      summary: "Delete businessproposal"
+      description: "Deletes an existing businessproposal from the system"
+      tags:
+        - Business Proposals
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+          description: "BusinessProposal unique identifier"
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      security:
+        - bearerAuth:
+      responses:
+        204:
+          description: "BusinessProposal deleted successfully"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "BusinessProposal not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"
+  /api/business-proposal-items:
+    post:
+      operationId: "createBusinessProposalItem"
+      summary: "Create new businessproposalitem"
+      description: "Creates a new businessproposalitem record in the system"
+      tags:
+        - Business Proposal Items
+      parameters:
+      security:
+        - bearerAuth:
+      requestBody:
+        description: "BusinessProposalItem data to create"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBusinessProposalItemRequest"
+      responses:
+        201:
+          description: "BusinessProposalItem created successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessProposalItem"
+        400:
+          description: "Validation error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ValidationError"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+    get:
+      operationId: "getBusinessProposalItems"
+      summary: "Get all businessproposalitems"
+      description: "Retrieves a paginated list of businessproposalitems with optional filtering\n\n**Example URLs:**\n- **Basic pagination**: `/api/business-proposal-items?page=1&size=20` - Get first page with 20 items\n- **Custom page size**: `/api/business-proposal-items?page=2&size=50` - Get second page with 50 items\n- **High-value opportunities**: `/api/business-proposal-items?filter=value >= 50000 AND stage = \"Negotiation\"` - Get high-value opportunities in negotiation stage\n- **BRL opportunities this year**: `/api/business-proposal-items?filter=currency = \"BRL\" AND createdAt >= \"2024-01-01\"` - Get BRL opportunities created this year"
+      tags:
+        - Business Proposal Items
+      parameters:
+        - name: "filter"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+          description: "Dynamic filter parameter using SQL-like syntax. Supports operators: =, !=, >, <, >=, <=, LIKE, ILIKE, IN, NOT IN, AND, OR. Use parentheses for complex logical grouping."
+          example: "status = \"ACTIVE\" AND type = \"Client\""
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            default: 1
+          description: "Page number for pagination (starts from 1)"
+          example: 1
+        - name: "size"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: "Number of items per page (maximum 100)"
+          example: 20
+      security:
+        - bearerAuth:
+      responses:
+        200:
+          description: "Paginated list of businessproposalitems"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedBusinessProposalItemResponse"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+  /api/business-proposal-items/{id}:
+    get:
+      operationId: "getBusinessProposalItemById"
+      summary: "Get businessproposalitem by ID"
+      description: "Retrieves a specific businessproposalitem by its unique identifier\n\n**Example URLs:**\n- **Basic pagination**: `/api/business-proposal-items/{id}?page=1&size=20` - Get first page with 20 items\n- **Custom page size**: `/api/business-proposal-items/{id}?page=2&size=50` - Get second page with 50 items\n- **High-value opportunities**: `/api/business-proposal-items/{id}?filter=value >= 50000 AND stage = \"Negotiation\"` - Get high-value opportunities in negotiation stage\n- **BRL opportunities this year**: `/api/business-proposal-items/{id}?filter=currency = \"BRL\" AND createdAt >= \"2024-01-01\"` - Get BRL opportunities created this year"
+      tags:
+        - Business Proposal Items
+      parameters:
+        - name: "filter"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+          description: "Dynamic filter parameter using SQL-like syntax. Supports operators: =, !=, >, <, >=, <=, LIKE, ILIKE, IN, NOT IN, AND, OR. Use parentheses for complex logical grouping."
+          example: "status = \"ACTIVE\" AND type = \"Client\""
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            default: 1
+          description: "Page number for pagination (starts from 1)"
+          example: 1
+        - name: "size"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: "Number of items per page (maximum 100)"
+          example: 20
+      security:
+        - bearerAuth:
+      responses:
+        200:
+          description: "BusinessProposalItem found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessProposalItem"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "BusinessProposalItem not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"
+    put:
+      operationId: "updateBusinessProposalItem"
+      summary: "Update businessproposalitem"
+      description: "Updates an existing businessproposalitem with new data"
+      tags:
+        - Business Proposal Items
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+          description: "BusinessProposalItem unique identifier"
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      security:
+        - bearerAuth:
+      requestBody:
+        description: "Updated businessproposalitem data"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBusinessProposalItemRequest"
+      responses:
+        200:
+          description: "BusinessProposalItem updated successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessProposalItem"
+        400:
+          description: "Validation error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ValidationError"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "BusinessProposalItem not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"
+    delete:
+      operationId: "deleteBusinessProposalItem"
+      summary: "Delete businessproposalitem"
+      description: "Deletes an existing businessproposalitem from the system"
+      tags:
+        - Business Proposal Items
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+          description: "BusinessProposalItem unique identifier"
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      security:
+        - bearerAuth:
+      responses:
+        204:
+          description: "BusinessProposalItem deleted successfully"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "BusinessProposalItem not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"
+  /api/dashboard/revenue-per-period:
+    get:
+      operationId: "getRevenuePerPeriod"
+      summary: "Get monthly revenue totals for a specific period"
+      description: "Retrieves monthly revenue data aggregated by month for the specified period"
+      tags:
+        - Dashboard
+      parameters:
+        - name: "period"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+            enum:
+              - THIS_MONTH
+              - THIS_YEAR
+              - LAST_QUARTER
+            default: "THIS_YEAR"
+          description: "Period for revenue data (optional, defaults to THIS_YEAR)"
+          example: "THIS_YEAR"
+      security:
+        - bearerAuth:
+      responses:
+        200:
+          description: "Monthly revenue data"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonthlyRevenueResponse"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+  /api/dashboard/more-sales-by-responsible:
+    get:
+      operationId: "getMoreSalesByResponsible"
+      summary: "Get sales performance by responsible users"
+      description: "Retrieves sales performance data grouped by responsible users for the specified period"
+      tags:
+        - Dashboard
+      parameters:
+        - name: "period"
+          in: "query"
+          required: true
+          schema:
+            type: "string"
+            enum:
+              - THIS_MONTH
+              - THIS_YEAR
+              - LAST_QUARTER
+          description: "Time period for sales data"
+          example: "THIS_MONTH"
+      security:
+        - bearerAuth:
+      responses:
+        200:
+          description: "Sales performance data by responsible"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MoreSalesByResponsibleResponse"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+  /api/dashboard/sales-funnel:
+    get:
+      operationId: "getSalesFunnel"
+      summary: "Get sales funnel distribution by stage"
+      description: "Retrieves sales funnel data showing distribution of opportunities by stage"
+      tags:
+        - Dashboard
+      parameters:
+        - name: "period"
+          in: "query"
+          required: true
+          schema:
+            type: "string"
+            enum:
+              - THIS_MONTH
+              - THIS_YEAR
+              - LAST_QUARTER
+          description: "Time period for funnel data"
+          example: "THIS_MONTH"
+      security:
+        - bearerAuth:
+      responses:
+        200:
+          description: "Sales funnel data by stage"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesFunnelResponse"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+  /api/dashboard/total-revenue:
+    get:
+      operationId: "getTotalRevenue"
+      summary: "Get total revenue from closed-won deals"
+      description: "Retrieves total revenue from all closed-won business deals for the specified period"
+      tags:
+        - Dashboard
+      parameters:
+        - name: "period"
+          in: "query"
+          required: true
+          schema:
+            type: "string"
+            enum:
+              - THIS_MONTH
+              - THIS_YEAR
+              - LAST_QUARTER
+          description: "Time period for revenue calculation"
+          example: "THIS_MONTH"
+      security:
+        - bearerAuth:
+      responses:
+        200:
+          description: "Total revenue data"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TotalRevenueResponse"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+  /api/dashboard/active-accounts:
+    get:
+      operationId: "getActiveAccounts"
+      summary: "Get total count of active accounts"
+      description: "Retrieves the total number of accounts with active status"
+      tags:
+        - Dashboard
+      parameters:
+      security:
+        - bearerAuth:
+      responses:
+        200:
+          description: "Active accounts count"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActiveAccountsResponse"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+  /api/dashboard/new-business:
+    get:
+      operationId: "getNewBusiness"
+      summary: "Get count of new businesses created"
+      description: "Retrieves the count of new business opportunities created in the specified period"
+      tags:
+        - Dashboard
+      parameters:
+        - name: "period"
+          in: "query"
+          required: true
+          schema:
+            type: "string"
+            enum:
+              - THIS_MONTH
+              - THIS_YEAR
+              - LAST_QUARTER
+          description: "Time period for new business count"
+          example: "THIS_MONTH"
+      security:
+        - bearerAuth:
+      responses:
+        200:
+          description: "New business count"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewBusinessResponse"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+  /api/accounts/{accountId}/timeline:
+    get:
+      operationId: "getAccountTimelineByAccountId"
+      summary: "Get timeline for specific account"
+      description: "Retrieves timeline entries for a specific account with optional filtering and pagination"
+      tags:
+        - Accounts
+        - Account Timeline
+      parameters:
+        - name: "accountId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+          description: "Account unique identifier"
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/parameters/PageParam/schema"
+          description: "Page number for pagination (starts from 1)"
+          example: 1
+        - name: "size"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/parameters/SizeParam/schema"
+          description: "Number of items per page (max 100)"
+          example: 20
+        - name: "type"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+            enum:
+              - CALL
+              - EMAIL
+              - MEETING
+              - NOTE
+              - TASK
+          description: "Filter by timeline entry type"
+          example: "CALL"
+        - name: "dateFrom"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+            format: "date-time"
+          description: "Filter timeline entries from this date"
+          example: "2024-01-01T00:00:00.000Z"
+        - name: "dateTo"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+            format: "date-time"
+          description: "Filter timeline entries until this date"
+          example: "2024-01-31T23:59:59.999Z"
+      security:
+        - bearerAuth:
+      responses:
+        200:
+          description: "Account timeline entries"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedAccountTimelineResponse"
+        401:
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/UnauthorizedError"
+        404:
+          description: "Account not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/NotFoundError"

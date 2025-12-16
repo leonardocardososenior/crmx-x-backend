@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { supabaseAdmin } from '../supabaseClient';
-import { RevenuePerYearParamsSchema, DashboardQueryParamsSchema, MonthlyRevenueResponseType, MoreSalesByResponsibleResponseType, SalesFunnelResponseType, TotalRevenueResponseType, ActiveAccountsResponseType } from '../schemas/dashboardSchemas';
+import { DashboardQueryParamsSchema, RevenuePerPeriodQueryParamsSchema, MonthlyRevenueResponseType, MoreSalesByResponsibleResponseType, SalesFunnelResponseType, TotalRevenueResponseType, ActiveAccountsResponseType, NewBusinessResponseType } from '../schemas/dashboardSchemas';
 import { BusinessStages, AccountStatuses } from '../types';
 import { 
   handleValidationError, 
@@ -8,33 +8,34 @@ import {
   handleInternalError
 } from '../utils/controllerHelpers';
 import { getLanguageFromRequest, createLocalizedMonthlyResponse } from '../utils/translations';
-import { createClosingDateFilter } from '../utils/dateFilters';
+import { createClosingDateFilter, calculatePeriodRange, getDateRangeForPeriod } from '../utils/dateFilters';
 
 /**
- * Get revenue per year aggregated by month
- * GET /api/dashboard/revenue-per-year/:year
+ * Get revenue per period aggregated by month
+ * GET /api/dashboard/revenue-per-period?period=THIS_MONTH|THIS_YEAR|LAST_QUARTER
  */
-export async function getRevenuePerYear(req: Request, res: Response): Promise<void> {
+export async function getRevenuePerPeriod(req: Request, res: Response): Promise<void> {
   try {
-    // Validate year parameter using Zod schema
-    const validationResult = RevenuePerYearParamsSchema.safeParse(req.params);
+    // Validate period parameter using Zod schema
+    const validationResult = RevenuePerPeriodQueryParamsSchema.safeParse(req.query);
     
     if (!validationResult.success) {
       handleValidationError(validationResult, res, req);
       return;
     }
 
-    const { year } = validationResult.data;
+    const { period } = validationResult.data;
+    const dateFilter = getDateRangeForPeriod(period);
 
     // Execute revenue aggregation query
-    // Filter by stage = 'Closed Won' and year from created_at
+    // Filter by stage = 'Closed Won' and period from created_at
     // Group by month and calculate sum of values
     const { data: monthlyRevenue, error } = await supabaseAdmin
       .from('business')
       .select('value, created_at')
       .eq('stage', BusinessStages.CLOSED_WON)
-      .gte('created_at', `${year}-01-01T00:00:00.000Z`)
-      .lt('created_at', `${year + 1}-01-01T00:00:00.000Z`);
+      .gte('created_at', dateFilter.startDate)
+      .lte('created_at', dateFilter.endDate);
 
     if (error) {
       handleDatabaseError('SELECT', 'business', error, res, req);
@@ -292,5 +293,49 @@ export async function getActiveAccounts(req: Request, res: Response): Promise<vo
 
   } catch (error) {
     handleInternalError('fetching active accounts', error, res, req);
+  }
+}
+
+/**
+ * Get count of new businesses created in a specific period
+ * GET /api/dashboard/new-business?period=THIS_MONTH|THIS_YEAR|LAST_QUARTER
+ */
+export async function getNewBusiness(req: Request, res: Response): Promise<void> {
+  try {
+    // Validate period parameter using DashboardPeriod enum
+    const validationResult = DashboardQueryParamsSchema.safeParse(req.query);
+    
+    if (!validationResult.success) {
+      handleValidationError(validationResult, res, req);
+      return;
+    }
+
+    const { period } = validationResult.data;
+
+    // Calculate date range using period calculation utilities
+    const { start, end } = calculatePeriodRange(period);
+
+    // Implement database query to count businesses where created_at is within period
+    const { data: businessData, error } = await supabaseAdmin
+      .from('business')
+      .select('id, created_at')
+      .not('created_at', 'is', null)
+      .gte('created_at', start.toISOString())
+      .lte('created_at', end.toISOString());
+
+    if (error) {
+      handleDatabaseError('SELECT', 'business', error, res, req);
+      return;
+    }
+
+    // Handle empty results by returning zero count
+    const count = businessData ? businessData.length : 0;
+
+    // Return formatted response
+    const response: NewBusinessResponseType = { count };
+    res.status(200).json(response);
+
+  } catch (error) {
+    handleInternalError('fetching new business count', error, res, req);
   }
 }

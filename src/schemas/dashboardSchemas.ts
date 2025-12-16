@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { SupportedLocales, isValidSupportedLocale, DashboardPeriods, isValidDashboardPeriod } from '../types';
+import { z } from '../utils/zodExtensions';
+import { SupportedLocales, isValidSupportedLocale, DashboardPeriods, isValidDashboardPeriod, DashboardPeriod } from '../types';
 
 // Supported locale validation schema
 export const SupportedLocaleSchema = z.string().refine(isValidSupportedLocale, {
@@ -9,26 +9,19 @@ export const SupportedLocaleSchema = z.string().refine(isValidSupportedLocale, {
 // Dashboard period validation schema
 export const DashboardPeriodSchema = z.string().refine(isValidDashboardPeriod, {
   message: `Period must be one of: ${Object.values(DashboardPeriods).join(', ')}`
-});
+}).transform((val) => val as DashboardPeriod);
 
-// Year validation schema - reasonable range for business data
-const currentYear = new Date().getFullYear();
-const YearSchema = z.number()
-  .int('Year must be an integer')
-  .min(2000, 'Year must be 2000 or later')
-  .max(currentYear + 10, `Year must be ${currentYear + 10} or earlier`);
 
-// Revenue per year route parameters schema
-export const RevenuePerYearParamsSchema = z.object({
-  year: z.string()
-    .regex(/^\d{4}$/, 'Year must be a 4-digit number')
-    .transform(Number)
-    .pipe(YearSchema)
-});
+
 
 // Dashboard query parameters schema (for period-based queries)
 export const DashboardQueryParamsSchema = z.object({
   period: DashboardPeriodSchema
+});
+
+// Revenue per period query parameters schema (period is optional with default)
+export const RevenuePerPeriodQueryParamsSchema = z.object({
+  period: DashboardPeriodSchema.optional().default('THIS_YEAR' as DashboardPeriod)
 });
 
 // Monthly revenue response schema for validation
@@ -63,12 +56,19 @@ export const ActiveAccountsResponseSchema = z.object({
   total: z.number().int().min(0, 'Total active accounts cannot be negative')
 });
 
+// New business response schema
+export const NewBusinessResponseSchema = z.object({
+  count: z.number().int().min(0, 'New business count cannot be negative')
+});
+
 // Type exports for TypeScript usage
-export type RevenuePerYearParamsInput = z.infer<typeof RevenuePerYearParamsSchema>;
+
 export type DashboardQueryParamsInput = z.infer<typeof DashboardQueryParamsSchema>;
+export type RevenuePerPeriodQueryParamsInput = z.infer<typeof RevenuePerPeriodQueryParamsSchema>;
 export type MonthlyRevenueResponseType = z.infer<typeof MonthlyRevenueResponseSchema>;
 export type MoreSalesByResponsibleResponseType = z.infer<typeof MoreSalesByResponsibleResponseSchema>;
 export type SalesFunnelResponseType = z.infer<typeof SalesFunnelResponseSchema>;
 export type TotalRevenueResponseType = z.infer<typeof TotalRevenueResponseSchema>;
 export type ActiveAccountsResponseType = z.infer<typeof ActiveAccountsResponseSchema>;
+export type NewBusinessResponseType = z.infer<typeof NewBusinessResponseSchema>;
 export type SupportedLocaleType = z.infer<typeof SupportedLocaleSchema>;

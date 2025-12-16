@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from '../utils/zodExtensions';
 import { ItemTypes, isValidItemType } from '../types';
 
 // Item Type validation schema
