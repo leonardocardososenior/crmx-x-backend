@@ -287,7 +287,6 @@ export interface BusinessProposal {
   date: string;
   value: number;
   content?: string;
-  items: BusinessProposalItem[];
   themeColor?: string;
   termsAndConditions?: string;
   showUnitPrices?: boolean;
@@ -460,7 +459,6 @@ export interface CreateBusinessProposalRequest {
   date: string;
   value: number;
   content?: string;
-  items: CreateBusinessProposalItemRequest[];
   themeColor?: string;
   termsAndConditions?: string;
   showUnitPrices?: boolean;
@@ -480,6 +478,7 @@ export interface UpdateBusinessProposalRequest {
 }
 
 export interface CreateBusinessProposalItemRequest {
+  proposalId: string;
   itemId: string;
   name: string;
   quantity: number;
@@ -488,6 +487,7 @@ export interface CreateBusinessProposalItemRequest {
 }
 
 export interface UpdateBusinessProposalItemRequest {
+  proposalId?: string;
   itemId?: string;
   name?: string;
   quantity?: number;
@@ -698,7 +698,6 @@ export function businessProposalDbToApi(dbProposal: BusinessProposalDB): Busines
     date: dbProposal.date,
     value: dbProposal.value,
     content: dbProposal.content,
-    items: [], // Items will be populated separately when needed
     themeColor: dbProposal.theme_color,
     termsAndConditions: dbProposal.terms_and_conditions,
     showUnitPrices: dbProposal.show_unit_prices,
@@ -744,6 +743,7 @@ export function businessProposalItemDbToApi(dbItem: BusinessProposalItemDB): Bus
 export function businessProposalItemApiToDb(apiItem: CreateBusinessProposalItemRequest | UpdateBusinessProposalItemRequest): Partial<BusinessProposalItemDB> {
   const dbItem: Partial<BusinessProposalItemDB> = {};
   
+  if ('proposalId' in apiItem && apiItem.proposalId !== undefined) dbItem.proposal_id = apiItem.proposalId;
   if ('itemId' in apiItem && apiItem.itemId !== undefined) dbItem.item_id = apiItem.itemId;
   if ('name' in apiItem && apiItem.name !== undefined) dbItem.name = apiItem.name;
   if ('quantity' in apiItem && apiItem.quantity !== undefined) dbItem.quantity = apiItem.quantity;

@@ -43,8 +43,7 @@ export async function createBusinessProposal(req: Request, res: Response): Promi
     // Log the operation start
     logger.proposalOperation('CREATE_START', undefined, req.body?.responsibleId, {
       requestId,
-      businessId: req.body?.businessId,
-      itemCount: req.body?.items?.length || 0
+      businessId: req.body?.businessId
     });
 
     // Validate request body using Zod schema
@@ -74,15 +73,7 @@ export async function createBusinessProposal(req: Request, res: Response): Promi
       return;
     }
 
-    // Validate that all items exist
-    for (const item of proposalData.items) {
-      const itemExists = await checkEntityExists('item', item.itemId);
-      if (!itemExists) {
-        logger.proposalError('CREATE_ITEM_NOT_FOUND', new Error(`Item not found: ${item.itemId}`), undefined, proposalData.responsibleId);
-        handleNotFound('Item', res, req);
-        return;
-      }
-    }
+
 
     // Convert API data (camelCase) to database format (snake_case) and add defaults
     const dbProposalData = businessProposalApiToDb(proposalData);
@@ -104,56 +95,15 @@ export async function createBusinessProposal(req: Request, res: Response): Promi
       return;
     }
 
-    // Insert proposal items
-    const itemsToInsert = proposalData.items.map(item => {
-      const dbItem = businessProposalItemApiToDb(item);
-      const calculatedTotal = (item.quantity * item.unitPrice) - (item.discount || 0);
-      
-      // Validate calculation
-      if (calculatedTotal < 0) {
-        logger.proposalError('CREATE_NEGATIVE_TOTAL', new Error(`Negative total calculated: ${calculatedTotal}`), createdProposal.id, proposalData.responsibleId);
-        throw new Error('calculation');
-      }
-      
-      return {
-        ...dbItem,
-        proposal_id: createdProposal.id,
-        total: calculatedTotal
-      };
-    });
 
-    const { data: createdItems, error: itemsError } = await supabaseAdmin
-      .from('business_proposal_item')
-      .insert(itemsToInsert)
-      .select();
-
-    if (itemsError) {
-      // Rollback proposal creation if items insertion fails
-      logger.proposalError('CREATE_ITEMS_DB_ERROR', itemsError as Error, createdProposal.id, proposalData.responsibleId);
-      
-      try {
-        await supabaseAdmin
-          .from('business_proposal')
-          .delete()
-          .eq('id', createdProposal.id);
-        logger.proposalOperation('CREATE_ROLLBACK_SUCCESS', createdProposal.id, proposalData.responsibleId);
-      } catch (rollbackError) {
-        logger.proposalError('CREATE_ROLLBACK_FAILED', rollbackError as Error, createdProposal.id, proposalData.responsibleId);
-      }
-      
-      handleDatabaseError('INSERT', 'business_proposal_item', itemsError, res, req);
-      return;
-    }
 
     // Convert database result (snake_case) to API format (camelCase) and return
     const apiProposal = businessProposalDbToApi(createdProposal as BusinessProposalDB);
-    apiProposal.items = (createdItems as BusinessProposalItemDB[]).map(businessProposalItemDbToApi);
     
     const duration = Date.now() - startTime;
     logger.proposalOperation('CREATE_SUCCESS', createdProposal.id, proposalData.responsibleId, {
       requestId,
       duration,
-      itemCount: createdItems?.length || 0,
       totalValue: apiProposal.value
     });
     
@@ -340,27 +290,13 @@ export async function getBusinessProposalById(req: Request, res: Response): Prom
       return;
     }
 
-    // Fetch proposal items
-    const { data: items, error: itemsError } = await supabaseAdmin
-      .from('business_proposal_item')
-      .select('*')
-      .eq('proposal_id', id)
-      .order('created_at', { ascending: true });
-
-    if (itemsError) {
-      handleDatabaseError('SELECT', 'business_proposal_item', itemsError, res, req);
-      return;
-    }
-
     // Convert database result (snake_case) to API format (camelCase) and return
     const apiProposal = businessProposalDbToApi(proposal as BusinessProposalDB);
-    apiProposal.items = (items as BusinessProposalItemDB[] || []).map(businessProposalItemDbToApi);
     
     const duration = Date.now() - startTime;
     logger.proposalOperation('GET_BY_ID_SUCCESS', id, (proposal as any).responsible_id, {
       requestId,
-      duration,
-      itemCount: apiProposal.items.length
+      duration
     });
     
     res.status(200).json(apiProposal);
@@ -443,21 +379,8 @@ export async function updateBusinessProposal(req: Request, res: Response): Promi
       return;
     }
 
-    // Fetch updated proposal items
-    const { data: items, error: itemsError } = await supabaseAdmin
-      .from('business_proposal_item')
-      .select('*')
-      .eq('proposal_id', id)
-      .order('created_at', { ascending: true });
-
-    if (itemsError) {
-      handleDatabaseError('SELECT', 'business_proposal_item', itemsError, res, req);
-      return;
-    }
-
     // Convert database result (snake_case) to API format (camelCase) and return
     const apiProposal = businessProposalDbToApi(updatedProposal as BusinessProposalDB);
-    apiProposal.items = (items as BusinessProposalItemDB[] || []).map(businessProposalItemDbToApi);
     
     const duration = Date.now() - startTime;
     logger.proposalOperation('UPDATE_SUCCESS', id, updateData.responsibleId || 'unknown', {
@@ -509,11 +432,7 @@ export async function deleteBusinessProposal(req: Request, res: Response): Promi
 
     const responsibleId = (existingProposal as any).responsible_id;
     
-    // Get item count for logging
-    const { count: itemCount } = await supabaseAdmin
-      .from('business_proposal_item')
-      .select('*', { count: 'exact', head: true })
-      .eq('proposal_id', id);
+
 
     // Delete business proposal from database (items will be cascade deleted by DB constraint)
     const { error } = await supabaseAdmin
@@ -540,8 +459,7 @@ export async function deleteBusinessProposal(req: Request, res: Response): Promi
     const duration = Date.now() - startTime;
     logger.proposalOperation('DELETE_SUCCESS', id, responsibleId, {
       requestId,
-      duration,
-      itemsDeleted: itemCount || 0
+      duration
     });
     
     res.status(200).json({

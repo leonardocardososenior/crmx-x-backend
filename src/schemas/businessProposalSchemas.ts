@@ -21,8 +21,9 @@ const PositiveNumberSchema = z.number().positive('Value must be positive');
 // Non-negative number validation schema
 const NonNegativeNumberSchema = z.number().min(0, 'Value must be non-negative');
 
-// Create BusinessProposalItem Schema - for nested items in proposal creation
+// Create BusinessProposalItem Schema - for standalone item creation
 export const CreateBusinessProposalItemSchema = z.object({
+  proposalId: UUIDSchema,
   itemId: UUIDSchema,
   name: z.string().min(1, 'Name is required'),
   quantity: PositiveNumberSchema,
@@ -42,6 +43,7 @@ export const CreateBusinessProposalItemSchema = z.object({
 
 // Update BusinessProposalItem Schema - for updating individual items
 export const UpdateBusinessProposalItemSchema = z.object({
+  proposalId: UUIDSchema.optional(),
   itemId: UUIDSchema.optional(),
   name: z.string().min(1, 'Name cannot be empty').optional(),
   quantity: PositiveNumberSchema.optional(),
@@ -68,7 +70,6 @@ export const CreateBusinessProposalSchema = z.object({
   date: DateOnlySchema,
   value: PositiveNumberSchema,
   content: z.string().optional(),
-  items: z.array(CreateBusinessProposalItemSchema).min(1, 'At least one item is required'),
   themeColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Theme color must be a valid hex color').optional(),
   termsAndConditions: z.string().optional(),
   showUnitPrices: z.boolean().optional()

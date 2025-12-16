@@ -5,7 +5,6 @@ import {
   UpdateBusinessProposalItemSchema, 
   BusinessProposalItemQueryParamsSchema, 
   BusinessProposalItemIdParamSchema,
-  ProposalIdParamSchema,
   CreateBusinessProposalItemInput,
   UpdateBusinessProposalItemInput,
   BusinessProposalItemQueryParamsInput 
@@ -30,24 +29,23 @@ import { logger } from '../utils/logger';
 
 /**
  * Create a new business proposal item
- * POST /api/business-proposals/:proposalId/items
+ * POST /api/business-proposal-items
  */
 export async function createBusinessProposalItem(req: Request, res: Response): Promise<void> {
+  const requestId = (req as any).requestId;
+  const startTime = Date.now();
+  
   try {
-    // Validate route parameters
-    const paramValidation = ProposalIdParamSchema.safeParse(req.params);
-    
-    if (!paramValidation.success) {
-      handleValidationError(paramValidation, res);
-      return;
-    }
-
-    const { proposalId } = paramValidation.data;
+    logger.proposalItemOperation('CREATE_START', undefined, req.body?.proposalId, {
+      requestId,
+      itemId: req.body?.itemId
+    });
 
     // Validate request body using Zod schema
     const validationResult = CreateBusinessProposalItemSchema.safeParse(req.body);
     
     if (!validationResult.success) {
+      logger.proposalItemError('CREATE_VALIDATION_FAILED', new Error('Validation failed'), undefined, req.body?.proposalId);
       handleValidationError(validationResult, res, req);
       return;
     }
@@ -55,8 +53,9 @@ export async function createBusinessProposalItem(req: Request, res: Response): P
     const itemData: CreateBusinessProposalItemInput = validationResult.data;
 
     // Check if business proposal exists
-    const proposalExists = await checkEntityExists('business_proposal', proposalId);
+    const proposalExists = await checkEntityExists('business_proposal', itemData.proposalId);
     if (!proposalExists) {
+      logger.proposalItemError('CREATE_PROPOSAL_NOT_FOUND', new Error('Proposal not found'), undefined, itemData.proposalId);
       handleNotFound('Proposal', res, req);
       return;
     }
@@ -64,6 +63,7 @@ export async function createBusinessProposalItem(req: Request, res: Response): P
     // Check if item exists
     const itemExists = await checkEntityExists('item', itemData.itemId);
     if (!itemExists) {
+      logger.proposalItemError('CREATE_ITEM_NOT_FOUND', new Error('Item not found'), undefined, itemData.proposalId);
       handleNotFound('Item', res, req);
       return;
     }
@@ -74,7 +74,7 @@ export async function createBusinessProposalItem(req: Request, res: Response): P
     
     // Validate calculation
     if (total < 0) {
-      logger.proposalItemError('CREATE_NEGATIVE_TOTAL', new Error(`Negative total calculated: ${total}`), undefined, proposalId);
+      logger.proposalItemError('CREATE_NEGATIVE_TOTAL', new Error(`Negative total calculated: ${total}`), undefined, itemData.proposalId);
       const language = getLanguageFromRequest(req);
       const errorMessages = {
         'pt-BR': 'O desconto não pode ser maior que o valor total do item',
@@ -91,7 +91,7 @@ export async function createBusinessProposalItem(req: Request, res: Response): P
     }
     
     if (itemData.quantity <= 0) {
-      logger.proposalItemError('CREATE_INVALID_QUANTITY', new Error(`Invalid quantity: ${itemData.quantity}`), undefined, proposalId);
+      logger.proposalItemError('CREATE_INVALID_QUANTITY', new Error(`Invalid quantity: ${itemData.quantity}`), undefined, itemData.proposalId);
       const language = getLanguageFromRequest(req);
       const errorMessages = {
         'pt-BR': 'A quantidade deve ser maior que zero',
@@ -108,7 +108,7 @@ export async function createBusinessProposalItem(req: Request, res: Response): P
     }
     
     if (itemData.unitPrice < 0) {
-      logger.proposalItemError('CREATE_NEGATIVE_PRICE', new Error(`Negative unit price: ${itemData.unitPrice}`), undefined, proposalId);
+      logger.proposalItemError('CREATE_NEGATIVE_PRICE', new Error(`Negative unit price: ${itemData.unitPrice}`), undefined, itemData.proposalId);
       const language = getLanguageFromRequest(req);
       const errorMessages = {
         'pt-BR': 'O preço unitário não pode ser negativo',
@@ -126,7 +126,6 @@ export async function createBusinessProposalItem(req: Request, res: Response): P
     
     const itemToInsert = {
       ...dbItemData,
-      proposal_id: proposalId,
       total: total
     };
 
@@ -138,6 +137,7 @@ export async function createBusinessProposalItem(req: Request, res: Response): P
       .single();
 
     if (error) {
+      logger.proposalItemError('CREATE_DB_ERROR', error as Error, undefined, itemData.proposalId);
       handleDatabaseError('INSERT', 'business_proposal_item', error, res, req);
       return;
     }
@@ -145,55 +145,61 @@ export async function createBusinessProposalItem(req: Request, res: Response): P
     // Convert database result (snake_case) to API format (camelCase) and return
     const apiItem = businessProposalItemDbToApi(createdItem as BusinessProposalItemDB);
     
+    const duration = Date.now() - startTime;
+    logger.proposalItemOperation('CREATE_SUCCESS', createdItem.id, itemData.proposalId, {
+      requestId,
+      duration,
+      total: apiItem.total
+    });
+    
     res.status(201).json(apiItem);
 
   } catch (error) {
+    const duration = Date.now() - startTime;
+    logger.proposalItemError('CREATE_INTERNAL_ERROR', error as Error, undefined, req.body?.proposalId);
+    logger.error('CONTROLLER', `Business proposal item creation failed after ${duration}ms`, error as Error, {
+      requestId,
+      duration,
+      proposalId: req.body?.proposalId,
+      itemId: req.body?.itemId
+    });
     handleInternalError('creating business proposal item', error, res, req);
   }
 }
 
 /**
  * Get business proposal items with filtering and pagination
- * GET /api/business-proposals/:proposalId/items
+ * GET /api/business-proposal-items
  */
 export async function getBusinessProposalItems(req: Request, res: Response): Promise<void> {
+  const requestId = (req as any).requestId;
+  const startTime = Date.now();
+  
   try {
-    // Validate route parameters
-    const paramValidation = ProposalIdParamSchema.safeParse(req.params);
-    
-    if (!paramValidation.success) {
-      handleValidationError(paramValidation, res);
-      return;
-    }
-
-    const { proposalId } = paramValidation.data;
+    logger.proposalItemOperation('LIST_START', undefined, undefined, { 
+      requestId,
+      queryParams: Object.keys(req.query).length 
+    });
 
     // Validate query parameters using Zod schema
     const validationResult = BusinessProposalItemQueryParamsSchema.safeParse(req.query);
     
     if (!validationResult.success) {
+      logger.proposalItemError('LIST_VALIDATION_FAILED', new Error('Query validation failed'), undefined, undefined);
       handleValidationError(validationResult, res, req);
       return;
     }
 
     const queryParams: BusinessProposalItemQueryParamsInput = validationResult.data;
 
-    // Check if business proposal exists
-    const proposalExists = await checkEntityExists('business_proposal', proposalId);
-    if (!proposalExists) {
-      handleNotFound('Proposal', res, req);
-      return;
-    }
-
     // Set default pagination values
     const page = queryParams.page || 1;
     const size = queryParams.size || 10;
 
-    // Build base query for the specific proposal
+    // Build base query
     let query = supabaseAdmin
       .from('business_proposal_item')
-      .select('*', { count: 'exact' })
-      .eq('proposal_id', proposalId);
+      .select('*', { count: 'exact' });
 
     // Apply dynamic filter if provided
     if (queryParams.filter) {
@@ -227,6 +233,10 @@ export async function getBusinessProposalItems(req: Request, res: Response): Pro
     }
 
     // Apply specific filters
+    if (queryParams.proposalId) {
+      query = query.eq('proposal_id', queryParams.proposalId);
+    }
+    
     if (queryParams.itemId) {
       query = query.eq('item_id', queryParams.itemId);
     }
@@ -271,6 +281,17 @@ export async function getBusinessProposalItems(req: Request, res: Response): Pro
     
     // Return paginated response
     const response = createPaginatedResponse(apiItems, count || 0, page, size);
+    
+    const duration = Date.now() - startTime;
+    logger.proposalItemOperation('LIST_SUCCESS', undefined, undefined, {
+      requestId,
+      duration,
+      resultCount: apiItems.length,
+      totalCount: count || 0,
+      page,
+      size
+    });
+    
     res.status(200).json(response);
 
   } catch (error) {
@@ -321,6 +342,9 @@ export async function getBusinessProposalItemById(req: Request, res: Response): 
  * PUT /api/business-proposal-items/:id
  */
 export async function updateBusinessProposalItem(req: Request, res: Response): Promise<void> {
+  const requestId = (req as any).requestId;
+  const startTime = Date.now();
+  
   try {
     // Validate route parameters
     const paramValidation = BusinessProposalItemIdParamSchema.safeParse(req.params);
@@ -331,6 +355,8 @@ export async function updateBusinessProposalItem(req: Request, res: Response): P
     }
 
     const { id } = paramValidation.data;
+
+    logger.proposalItemOperation('UPDATE_START', id, undefined, { requestId });
 
     // Validate request body using Zod schema
     const validationResult = UpdateBusinessProposalItemSchema.safeParse(req.body);
@@ -350,9 +376,12 @@ export async function updateBusinessProposalItem(req: Request, res: Response): P
       .single();
 
     if (existsError || !existingItem) {
+      logger.proposalItemError('UPDATE_NOT_FOUND', new Error('Proposal item not found'), id);
       handleNotFound('ProposalItem', res, req);
       return;
     }
+
+    const currentItem = existingItem as BusinessProposalItemDB;
 
     // Check if item exists (if being updated)
     if (updateData.itemId) {
@@ -367,13 +396,31 @@ export async function updateBusinessProposalItem(req: Request, res: Response): P
     const dbUpdateData = businessProposalItemApiToDb(updateData);
 
     // Recalculate total if quantity, unitPrice, or discount are being updated
-    const currentItem = existingItem as BusinessProposalItemDB;
     const newQuantity = updateData.quantity !== undefined ? updateData.quantity : currentItem.quantity;
     const newUnitPrice = updateData.unitPrice !== undefined ? updateData.unitPrice : currentItem.unit_price;
     const newDiscount = updateData.discount !== undefined ? (updateData.discount || 0) : (currentItem.discount || 0);
     
     // Always recalculate total to ensure consistency
     const newTotal = (newQuantity * newUnitPrice) - newDiscount;
+    
+    // Validate calculation
+    if (newTotal < 0) {
+      logger.proposalItemError('UPDATE_NEGATIVE_TOTAL', new Error(`Negative total calculated: ${newTotal}`), id, currentItem.proposal_id);
+      const language = getLanguageFromRequest(req);
+      const errorMessages = {
+        'pt-BR': 'O desconto não pode ser maior que o valor total do item',
+        'en-US': 'Discount cannot be greater than the total item value',
+        'es-CO': 'El descuento no puede ser mayor que el valor total del artículo'
+      };
+      
+      res.status(400).json({
+        message: errorMessages[language] || errorMessages['pt-BR'],
+        status: 400,
+        requestId: (req as any).requestId
+      });
+      return;
+    }
+    
     dbUpdateData.total = newTotal;
 
     // Update business proposal item in database
@@ -385,6 +432,7 @@ export async function updateBusinessProposalItem(req: Request, res: Response): P
       .single();
 
     if (error) {
+      logger.proposalItemError('UPDATE_DB_ERROR', error as Error, id, currentItem.proposal_id);
       handleDatabaseError('UPDATE', 'business_proposal_item', error, res, req);
       return;
     }
@@ -392,9 +440,24 @@ export async function updateBusinessProposalItem(req: Request, res: Response): P
     // Convert database result (snake_case) to API format (camelCase) and return
     const apiItem = businessProposalItemDbToApi(updatedItem as BusinessProposalItemDB);
     
+    const duration = Date.now() - startTime;
+    logger.proposalItemOperation('UPDATE_SUCCESS', id, currentItem.proposal_id, {
+      requestId,
+      duration,
+      fieldsUpdated: Object.keys(updateData).length,
+      newTotal: apiItem.total
+    });
+    
     res.status(200).json(apiItem);
 
   } catch (error) {
+    const duration = Date.now() - startTime;
+    logger.proposalItemError('UPDATE_INTERNAL_ERROR', error as Error, req.params?.id);
+    logger.error('CONTROLLER', `Business proposal item update failed after ${duration}ms`, error as Error, {
+      requestId,
+      duration,
+      itemId: req.params?.id
+    });
     handleInternalError('updating business proposal item', error, res, req);
   }
 }
@@ -404,6 +467,9 @@ export async function updateBusinessProposalItem(req: Request, res: Response): P
  * DELETE /api/business-proposal-items/:id
  */
 export async function deleteBusinessProposalItem(req: Request, res: Response): Promise<void> {
+  const requestId = (req as any).requestId;
+  const startTime = Date.now();
+  
   try {
     // Validate route parameters
     const paramValidation = BusinessProposalItemIdParamSchema.safeParse(req.params);
@@ -415,12 +481,22 @@ export async function deleteBusinessProposalItem(req: Request, res: Response): P
 
     const { id } = paramValidation.data;
 
-    // Check if business proposal item exists first
-    const exists = await checkEntityExists('business_proposal_item', id);
-    if (!exists) {
+    logger.proposalItemOperation('DELETE_START', id, undefined, { requestId });
+
+    // Check if business proposal item exists first and get proposal_id for logging
+    const { data: existingItem, error: checkError } = await supabaseAdmin
+      .from('business_proposal_item')
+      .select('id, proposal_id')
+      .eq('id', id)
+      .single();
+
+    if (checkError || !existingItem) {
+      logger.proposalItemError('DELETE_NOT_FOUND', new Error('Proposal item not found'), id);
       handleNotFound('ProposalItem', res, req);
       return;
     }
+
+    const proposalId = (existingItem as any).proposal_id;
 
     // Delete business proposal item from database
     const { error } = await supabaseAdmin
@@ -429,6 +505,7 @@ export async function deleteBusinessProposalItem(req: Request, res: Response): P
       .eq('id', id);
 
     if (error) {
+      logger.proposalItemError('DELETE_DB_ERROR', error as Error, id, proposalId);
       handleDatabaseError('DELETE', 'business_proposal_item', error, res, req);
       return;
     }
@@ -437,12 +514,25 @@ export async function deleteBusinessProposalItem(req: Request, res: Response): P
     const language = getLanguageFromRequest(req);
     const message = getSuccessMessage('deleted', 'proposalItem', language);
     
+    const duration = Date.now() - startTime;
+    logger.proposalItemOperation('DELETE_SUCCESS', id, proposalId, {
+      requestId,
+      duration
+    });
+    
     res.status(200).json({
       message,
       id: id
     });
 
   } catch (error) {
+    const duration = Date.now() - startTime;
+    logger.proposalItemError('DELETE_INTERNAL_ERROR', error as Error, req.params?.id);
+    logger.error('CONTROLLER', `Business proposal item deletion failed after ${duration}ms`, error as Error, {
+      requestId,
+      duration,
+      itemId: req.params?.id
+    });
     handleInternalError('deleting business proposal item', error, res, req);
   }
 }
