@@ -74,6 +74,35 @@ CREATE TABLE account_timeline
     created_at  TIMESTAMPTZ      DEFAULT NOW()
 );
 
+-- Create business_proposal table with all required fields and constraints
+CREATE TABLE business_proposal (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    business_id UUID NOT NULL REFERENCES business(id),
+    responsible_id UUID NOT NULL REFERENCES users(id),
+    title TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'Rascunho',
+    date TIMESTAMPTZ NOT NULL,
+    value NUMERIC NOT NULL,
+    content TEXT,
+    theme_color TEXT,
+    terms_and_conditions TEXT,
+    show_unit_prices BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create business_proposal_item table with foreign key relationships
+CREATE TABLE business_proposal_item (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    proposal_id UUID NOT NULL REFERENCES business_proposal(id) ON DELETE CASCADE,
+    item_id UUID NOT NULL REFERENCES item(id),
+    name TEXT NOT NULL,
+    quantity NUMERIC NOT NULL,
+    unit_price NUMERIC NOT NULL,
+    discount NUMERIC DEFAULT 0,
+    total NUMERIC NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Create indexes for better query performance
 CREATE INDEX idx_account_responsible_id ON account (responsible_id);
 CREATE INDEX idx_account_status ON account (status);
@@ -92,3 +121,10 @@ CREATE INDEX idx_account_timeline_account_id ON account_timeline (account_id);
 CREATE INDEX idx_account_timeline_type ON account_timeline (type);
 CREATE INDEX idx_account_timeline_date ON account_timeline (date);
 CREATE INDEX idx_account_timeline_created_by ON account_timeline (created_by);
+-- Business proposal indexes for query performance
+CREATE INDEX idx_business_proposal_business_id ON business_proposal (business_id);
+CREATE INDEX idx_business_proposal_responsible_id ON business_proposal (responsible_id);
+CREATE INDEX idx_business_proposal_status ON business_proposal (status);
+CREATE INDEX idx_business_proposal_date ON business_proposal (date);
+CREATE INDEX idx_business_proposal_item_proposal_id ON business_proposal_item (proposal_id);
+CREATE INDEX idx_business_proposal_item_item_id ON business_proposal_item (item_id);

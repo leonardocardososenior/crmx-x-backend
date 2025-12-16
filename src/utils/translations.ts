@@ -22,6 +22,9 @@ export interface Translations {
       timeline_account_not_found: string;
       timeline_creator_not_found: string;
       relationship_error: string;
+      proposal_not_found: string;
+      proposal_item_not_found: string;
+      item_not_found: string;
     };
     constraints: {
       duplicate_record: string;
@@ -37,12 +40,16 @@ export interface Translations {
       business: string;
       item: string;
       timeline: string;
+      proposal: string;
+      proposal_item: string;
       route: string;
     };
     server: {
       internal_error: string;
       service_unavailable: string;
       external_service_error: string;
+      timeout_error: string;
+      rate_limit_exceeded: string;
     };
   };
   success: {
@@ -52,14 +59,20 @@ export interface Translations {
       business: string;
       item: string;
       timeline: string;
+      proposal: string;
+      proposal_item: string;
     };
     created: {
       item: string;
       timeline: string;
+      proposal: string;
+      proposal_item: string;
     };
     updated: {
       item: string;
       timeline: string;
+      proposal: string;
+      proposal_item: string;
     };
   };
   fields: {
@@ -94,6 +107,19 @@ export interface Translations {
     // AccountTimeline fields
     date: string;
     createdBy: string;
+    // BusinessProposal fields
+    businessId: string;
+    content: string;
+    themeColor: string;
+    termsAndConditions: string;
+    showUnitPrices: string;
+    // BusinessProposalItem fields
+    proposalId: string;
+    itemId: string;
+    quantity: string;
+    unitPrice: string;
+    discount: string;
+    total: string;
   };
   timeline_types: {
     NOTE: string;
@@ -126,6 +152,9 @@ const translations: Record<Language, Translations> = {
         timeline_account_not_found: 'A conta informada para o timeline não existe',
         timeline_creator_not_found: 'O usuário criador do timeline não existe',
         relationship_error: 'Erro de relacionamento entre registros',
+        proposal_not_found: 'A proposta informada não existe',
+        proposal_item_not_found: 'O item da proposta informado não existe',
+        item_not_found: 'O item informado não existe',
       },
       constraints: {
         duplicate_record: 'Já existe um registro com essas informações',
@@ -141,12 +170,16 @@ const translations: Record<Language, Translations> = {
         business: 'Negócio não encontrado',
         item: 'Item não encontrado',
         timeline: 'Timeline não encontrado',
+        proposal: 'Proposta não encontrada',
+        proposal_item: 'Item da proposta não encontrado',
         route: 'Rota não encontrada',
       },
       server: {
         internal_error: 'Erro interno do servidor',
         service_unavailable: 'Serviço temporariamente indisponível',
         external_service_error: 'Erro no serviço externo',
+        timeout_error: 'Tempo limite da requisição excedido',
+        rate_limit_exceeded: 'Muitas requisições. Tente novamente mais tarde',
       },
     },
     success: {
@@ -156,14 +189,20 @@ const translations: Record<Language, Translations> = {
         business: 'Negócio excluído com sucesso',
         item: 'Item excluído com sucesso',
         timeline: 'Timeline excluído com sucesso',
+        proposal: 'Proposta excluída com sucesso',
+        proposal_item: 'Item da proposta excluído com sucesso',
       },
       created: {
         item: 'Item criado com sucesso',
         timeline: 'Timeline criado com sucesso',
+        proposal: 'Proposta criada com sucesso',
+        proposal_item: 'Item da proposta criado com sucesso',
       },
       updated: {
         item: 'Item atualizado com sucesso',
         timeline: 'Timeline atualizado com sucesso',
+        proposal: 'Proposta atualizada com sucesso',
+        proposal_item: 'Item da proposta atualizado com sucesso',
       },
     },
     fields: {
@@ -198,6 +237,19 @@ const translations: Record<Language, Translations> = {
       // AccountTimeline fields
       date: 'Data',
       createdBy: 'Criado por',
+      // BusinessProposal fields
+      businessId: 'Negócio',
+      content: 'Conteúdo',
+      themeColor: 'Cor do tema',
+      termsAndConditions: 'Termos e condições',
+      showUnitPrices: 'Mostrar preços unitários',
+      // BusinessProposalItem fields
+      proposalId: 'Proposta',
+      itemId: 'Item',
+      quantity: 'Quantidade',
+      unitPrice: 'Preço unitário',
+      discount: 'Desconto',
+      total: 'Total',
     },
     timeline_types: {
       NOTE: 'Nota',
@@ -228,6 +280,9 @@ const translations: Record<Language, Translations> = {
         timeline_account_not_found: 'The specified account for timeline does not exist',
         timeline_creator_not_found: 'The specified timeline creator does not exist',
         relationship_error: 'Relationship error between records',
+        proposal_not_found: 'The specified proposal does not exist',
+        proposal_item_not_found: 'The specified proposal item does not exist',
+        item_not_found: 'The specified item does not exist',
       },
       constraints: {
         duplicate_record: 'A record with this information already exists',
@@ -243,12 +298,16 @@ const translations: Record<Language, Translations> = {
         business: 'Business not found',
         item: 'Item not found',
         timeline: 'Timeline not found',
+        proposal: 'Proposal not found',
+        proposal_item: 'Proposal item not found',
         route: 'Route not found',
       },
       server: {
         internal_error: 'Internal server error',
         service_unavailable: 'Service temporarily unavailable',
         external_service_error: 'External service error',
+        timeout_error: 'Request timeout exceeded',
+        rate_limit_exceeded: 'Too many requests. Please try again later',
       },
     },
     success: {
@@ -258,14 +317,20 @@ const translations: Record<Language, Translations> = {
         business: 'Business deleted successfully',
         item: 'Item deleted successfully',
         timeline: 'Timeline deleted successfully',
+        proposal: 'Proposal deleted successfully',
+        proposal_item: 'Proposal item deleted successfully',
       },
       created: {
         item: 'Item created successfully',
         timeline: 'Timeline created successfully',
+        proposal: 'Proposal created successfully',
+        proposal_item: 'Proposal item created successfully',
       },
       updated: {
         item: 'Item updated successfully',
         timeline: 'Timeline updated successfully',
+        proposal: 'Proposal updated successfully',
+        proposal_item: 'Proposal item updated successfully',
       },
     },
     fields: {
@@ -300,6 +365,19 @@ const translations: Record<Language, Translations> = {
       // AccountTimeline fields
       date: 'Date',
       createdBy: 'Created by',
+      // BusinessProposal fields
+      businessId: 'Business',
+      content: 'Content',
+      themeColor: 'Theme color',
+      termsAndConditions: 'Terms and conditions',
+      showUnitPrices: 'Show unit prices',
+      // BusinessProposalItem fields
+      proposalId: 'Proposal',
+      itemId: 'Item',
+      quantity: 'Quantity',
+      unitPrice: 'Unit price',
+      discount: 'Discount',
+      total: 'Total',
     },
     timeline_types: {
       NOTE: 'Note',
@@ -330,6 +408,9 @@ const translations: Record<Language, Translations> = {
         timeline_account_not_found: 'La cuenta especificada para el timeline no existe',
         timeline_creator_not_found: 'El usuario creador del timeline no existe',
         relationship_error: 'Error de relación entre registros',
+        proposal_not_found: 'La propuesta especificada no existe',
+        proposal_item_not_found: 'El artículo de la propuesta especificado no existe',
+        item_not_found: 'El artículo especificado no existe',
       },
       constraints: {
         duplicate_record: 'Ya existe un registro con esta información',
@@ -345,12 +426,16 @@ const translations: Record<Language, Translations> = {
         business: 'Negocio no encontrado',
         item: 'Artículo no encontrado',
         timeline: 'Timeline no encontrado',
+        proposal: 'Propuesta no encontrada',
+        proposal_item: 'Artículo de propuesta no encontrado',
         route: 'Ruta no encontrada',
       },
       server: {
         internal_error: 'Error interno del servidor',
         service_unavailable: 'Servicio temporalmente no disponible',
         external_service_error: 'Error en servicio externo',
+        timeout_error: 'Tiempo límite de solicitud excedido',
+        rate_limit_exceeded: 'Demasiadas solicitudes. Inténtelo de nuevo más tarde',
       },
     },
     success: {
@@ -360,14 +445,20 @@ const translations: Record<Language, Translations> = {
         business: 'Negocio eliminado exitosamente',
         item: 'Artículo eliminado exitosamente',
         timeline: 'Timeline eliminado exitosamente',
+        proposal: 'Propuesta eliminada exitosamente',
+        proposal_item: 'Artículo de propuesta eliminado exitosamente',
       },
       created: {
         item: 'Artículo creado exitosamente',
         timeline: 'Timeline creado exitosamente',
+        proposal: 'Propuesta creada exitosamente',
+        proposal_item: 'Artículo de propuesta creado exitosamente',
       },
       updated: {
         item: 'Artículo actualizado exitosamente',
         timeline: 'Timeline actualizado exitosamente',
+        proposal: 'Propuesta actualizada exitosamente',
+        proposal_item: 'Artículo de propuesta actualizado exitosamente',
       },
     },
     fields: {
@@ -402,6 +493,19 @@ const translations: Record<Language, Translations> = {
       // AccountTimeline fields
       date: 'Fecha',
       createdBy: 'Creado por',
+      // BusinessProposal fields
+      businessId: 'Negocio',
+      content: 'Contenido',
+      themeColor: 'Color del tema',
+      termsAndConditions: 'Términos y condiciones',
+      showUnitPrices: 'Mostrar precios unitarios',
+      // BusinessProposalItem fields
+      proposalId: 'Propuesta',
+      itemId: 'Artículo',
+      quantity: 'Cantidad',
+      unitPrice: 'Precio unitario',
+      discount: 'Descuento',
+      total: 'Total',
     },
     timeline_types: {
       NOTE: 'Nota',
@@ -485,8 +589,25 @@ export function getRelationshipErrorMessage(
 ): string {
   const t = getTranslations(language);
   
-  if (errorDetails.includes('responsible_id') || errorDetails.includes('owner_id')) {
+  // Business proposal specific relationship errors
+  if (errorDetails.includes('business_proposal') && errorDetails.includes('business_id')) {
+    return t.errors.relationships.business_not_found;
+  } else if (errorDetails.includes('business_proposal') && errorDetails.includes('responsible_id')) {
+    return t.errors.relationships.user_not_found;
+  } else if (errorDetails.includes('business_proposal_item') && errorDetails.includes('proposal_id')) {
+    return t.errors.relationships.proposal_not_found;
+  } else if (errorDetails.includes('business_proposal_item') && errorDetails.includes('item_id')) {
+    return t.errors.relationships.item_not_found;
+  }
+  // General relationship errors
+  else if (errorDetails.includes('responsible_id') || errorDetails.includes('owner_id')) {
     return t.errors.relationships.owner_not_found;
+  } else if (errorDetails.includes('business_id')) {
+    return t.errors.relationships.business_not_found;
+  } else if (errorDetails.includes('proposal_id')) {
+    return t.errors.relationships.proposal_not_found;
+  } else if (errorDetails.includes('item_id')) {
+    return t.errors.relationships.item_not_found;
   } else if (errorDetails.includes('account_id')) {
     // Check if it's timeline-specific account relationship
     if (errorDetails.includes('account_timeline')) {
@@ -517,6 +638,13 @@ export function getNotFoundMessage(entityType: string, language: Language = 'pt-
       return t.errors.not_found.item;
     case 'timeline':
       return t.errors.not_found.timeline;
+    case 'proposal':
+    case 'businessproposal':
+      return t.errors.not_found.proposal;
+    case 'proposal_item':
+    case 'proposalitem':
+    case 'businessproposalitem':
+      return t.errors.not_found.proposal_item;
     default:
       return t.errors.not_found.route;
   }
@@ -543,6 +671,13 @@ export function getSuccessMessage(
           return t.success.deleted.item;
         case 'timeline':
           return t.success.deleted.timeline;
+        case 'proposal':
+        case 'businessproposal':
+          return t.success.deleted.proposal;
+        case 'proposal_item':
+        case 'proposalitem':
+        case 'businessproposalitem':
+          return t.success.deleted.proposal_item;
       }
       break;
     case 'created':
@@ -551,6 +686,13 @@ export function getSuccessMessage(
           return t.success.created.item;
         case 'timeline':
           return t.success.created.timeline;
+        case 'proposal':
+        case 'businessproposal':
+          return t.success.created.proposal;
+        case 'proposal_item':
+        case 'proposalitem':
+        case 'businessproposalitem':
+          return t.success.created.proposal_item;
       }
       break;
     case 'updated':
@@ -559,6 +701,13 @@ export function getSuccessMessage(
           return t.success.updated.item;
         case 'timeline':
           return t.success.updated.timeline;
+        case 'proposal':
+        case 'businessproposal':
+          return t.success.updated.proposal;
+        case 'proposal_item':
+        case 'proposalitem':
+        case 'businessproposalitem':
+          return t.success.updated.proposal_item;
       }
       break;
   }

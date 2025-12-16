@@ -44,6 +44,14 @@ export const TimelineTypes = {
   SYSTEM: 'SYSTEM'
 } as const;
 
+export const BusinessProposalStatuses = {
+  DRAFT: 'Rascunho',
+  IN_REVIEW: 'Em Revisão',
+  SENT: 'Enviado',
+  ACCEPTED: 'Aceito',
+  REJECTED: 'Rejeitado'
+} as const;
+
 // Type definitions derived from enums
 export type UserRole = typeof UserRoles[keyof typeof UserRoles];
 export type AccountStatus = typeof AccountStatuses[keyof typeof AccountStatuses];
@@ -52,6 +60,7 @@ export type BusinessStage = typeof BusinessStages[keyof typeof BusinessStages];
 export type Currency = typeof Currencies[keyof typeof Currencies];
 export type ItemType = typeof ItemTypes[keyof typeof ItemTypes];
 export type TimelineType = typeof TimelineTypes[keyof typeof TimelineTypes];
+export type BusinessProposalStatus = typeof BusinessProposalStatuses[keyof typeof BusinessProposalStatuses];
 
 // Validation helper functions
 export const isValidUserRole = (value: string): value is UserRole => {
@@ -82,6 +91,10 @@ export const isValidTimelineType = (value: string): value is TimelineType => {
   return Object.values(TimelineTypes).includes(value as TimelineType);
 };
 
+export const isValidBusinessProposalStatus = (value: string): value is BusinessProposalStatus => {
+  return Object.values(BusinessProposalStatuses).includes(value as BusinessProposalStatus);
+};
+
 // User Interface (Database representation - snake_case)
 export interface UserDB {
   id: string;
@@ -98,6 +111,18 @@ export interface UserReference {
 }
 
 export interface AccountReference {
+  id: string;
+}
+
+export interface BusinessReference {
+  id: string;
+}
+
+export interface ItemReference {
+  id: string;
+}
+
+export interface BusinessProposalReference {
   id: string;
 }
 
@@ -211,6 +236,35 @@ export interface AccountTimelineDB {
   created_at: string;
 }
 
+// BusinessProposal Interface (Database representation - snake_case)
+export interface BusinessProposalDB {
+  id: string;
+  business_id: string;
+  responsible_id: string;
+  title: string;
+  status: string;
+  date: string;
+  value: number;
+  content?: string | null;
+  theme_color?: string | null;
+  terms_and_conditions?: string | null;
+  show_unit_prices?: boolean | null;
+  created_at: string;
+}
+
+// BusinessProposalItem Interface (Database representation - snake_case)
+export interface BusinessProposalItemDB {
+  id: string;
+  proposal_id: string;
+  item_id: string;
+  name: string;
+  quantity: number;
+  unit_price: number;
+  discount?: number | null;
+  total: number;
+  created_at: string;
+}
+
 // AccountTimeline Interface (API representation - camelCase)
 export interface AccountTimeline {
   id: string;
@@ -220,6 +274,36 @@ export interface AccountTimeline {
   description?: string;
   date: string;
   createdBy: UserReference;
+  createdAt: string;
+}
+
+// BusinessProposal Interface (API representation - camelCase)
+export interface BusinessProposal {
+  id: string;
+  business: BusinessReference;
+  responsible: UserReference;
+  title: string;
+  status: string;
+  date: string;
+  value: number;
+  content?: string;
+  items: BusinessProposalItem[];
+  themeColor?: string;
+  termsAndConditions?: string;
+  showUnitPrices?: boolean;
+  createdAt: string;
+}
+
+// BusinessProposalItem Interface (API representation - camelCase)
+export interface BusinessProposalItem {
+  id: string;
+  proposal: BusinessProposalReference;
+  item: ItemReference;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  discount?: number;
+  total: number;
   createdAt: string;
 }
 
@@ -234,6 +318,7 @@ export interface TokenCache {
 export interface ErrorResponse {
   message: string;
   status: number;
+  requestId?: string;
 }
 
 export interface PaginatedResponse<T> {
@@ -367,6 +452,68 @@ export interface AccountTimelineQueryParams {
   size?: number;
 }
 
+export interface CreateBusinessProposalRequest {
+  businessId: string;
+  responsibleId: string;
+  title: string;
+  status?: string;
+  date: string;
+  value: number;
+  content?: string;
+  items: CreateBusinessProposalItemRequest[];
+  themeColor?: string;
+  termsAndConditions?: string;
+  showUnitPrices?: boolean;
+}
+
+export interface UpdateBusinessProposalRequest {
+  businessId?: string;
+  responsibleId?: string;
+  title?: string;
+  status?: string;
+  date?: string;
+  value?: number;
+  content?: string | null;
+  themeColor?: string | null;
+  termsAndConditions?: string | null;
+  showUnitPrices?: boolean | null;
+}
+
+export interface CreateBusinessProposalItemRequest {
+  itemId: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  discount?: number;
+}
+
+export interface UpdateBusinessProposalItemRequest {
+  itemId?: string;
+  name?: string;
+  quantity?: number;
+  unitPrice?: number;
+  discount?: number | null;
+}
+
+export interface BusinessProposalQueryParams {
+  search?: string;
+  filter?: string;
+  status?: string;
+  businessId?: string;
+  responsibleId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  size?: number;
+}
+
+export interface BusinessProposalItemQueryParams {
+  proposalId?: string;
+  itemId?: string;
+  page?: number;
+  size?: number;
+}
+
 // Default value helpers
 export const getDefaultUserRole = (): UserRole => UserRoles.SALES_REP;
 export const getDefaultAccountStatus = (): AccountStatus => AccountStatuses.ACTIVE;
@@ -374,6 +521,7 @@ export const getDefaultAccountType = (): AccountType => AccountTypes.LEAD;
 export const getDefaultCurrency = (): Currency => Currencies.BRL;
 export const getDefaultItemType = (): ItemType => ItemTypes.PRODUCT;
 export const getDefaultTimelineType = (): TimelineType => TimelineTypes.NOTE;
+export const getDefaultBusinessProposalStatus = (): BusinessProposalStatus => BusinessProposalStatuses.DRAFT;
 
 // Utility function to remove null and undefined fields from objects
 function removeNullUndefinedFields<T extends Record<string, any>>(obj: T): Partial<T> {
@@ -538,4 +686,75 @@ export function accountTimelineApiToDb(apiTimeline: CreateAccountTimelineRequest
   if ('createdBy' in apiTimeline && apiTimeline.createdBy !== undefined) dbTimeline.created_by = apiTimeline.createdBy;
   
   return dbTimeline;
+}
+
+export function businessProposalDbToApi(dbProposal: BusinessProposalDB): BusinessProposal {
+  const proposal = {
+    id: dbProposal.id,
+    business: { id: dbProposal.business_id },
+    responsible: { id: dbProposal.responsible_id },
+    title: dbProposal.title,
+    status: dbProposal.status,
+    date: dbProposal.date,
+    value: dbProposal.value,
+    content: dbProposal.content,
+    items: [], // Items will be populated separately when needed
+    themeColor: dbProposal.theme_color,
+    termsAndConditions: dbProposal.terms_and_conditions,
+    showUnitPrices: dbProposal.show_unit_prices,
+    createdAt: dbProposal.created_at
+  };
+  
+  return removeNullUndefinedFields(proposal) as BusinessProposal;
+}
+
+export function businessProposalApiToDb(apiProposal: CreateBusinessProposalRequest | UpdateBusinessProposalRequest): Partial<BusinessProposalDB> {
+  const dbProposal: Partial<BusinessProposalDB> = {};
+  
+  if ('businessId' in apiProposal && apiProposal.businessId !== undefined) dbProposal.business_id = apiProposal.businessId;
+  if ('responsibleId' in apiProposal && apiProposal.responsibleId !== undefined) dbProposal.responsible_id = apiProposal.responsibleId;
+  if ('title' in apiProposal && apiProposal.title !== undefined) dbProposal.title = apiProposal.title;
+  if ('status' in apiProposal && apiProposal.status !== undefined) dbProposal.status = apiProposal.status;
+  if ('date' in apiProposal && apiProposal.date !== undefined) dbProposal.date = apiProposal.date;
+  if ('value' in apiProposal && apiProposal.value !== undefined) dbProposal.value = apiProposal.value;
+  if ('content' in apiProposal && apiProposal.content !== undefined) dbProposal.content = apiProposal.content;
+  if ('themeColor' in apiProposal && apiProposal.themeColor !== undefined) dbProposal.theme_color = apiProposal.themeColor;
+  if ('termsAndConditions' in apiProposal && apiProposal.termsAndConditions !== undefined) dbProposal.terms_and_conditions = apiProposal.termsAndConditions;
+  if ('showUnitPrices' in apiProposal && apiProposal.showUnitPrices !== undefined) dbProposal.show_unit_prices = apiProposal.showUnitPrices;
+  
+  return dbProposal;
+}
+
+export function businessProposalItemDbToApi(dbItem: BusinessProposalItemDB): BusinessProposalItem {
+  const item = {
+    id: dbItem.id,
+    proposal: { id: dbItem.proposal_id },
+    item: { id: dbItem.item_id },
+    name: dbItem.name,
+    quantity: dbItem.quantity,
+    unitPrice: dbItem.unit_price,
+    discount: dbItem.discount,
+    total: dbItem.total,
+    createdAt: dbItem.created_at
+  };
+  
+  return removeNullUndefinedFields(item) as BusinessProposalItem;
+}
+
+export function businessProposalItemApiToDb(apiItem: CreateBusinessProposalItemRequest | UpdateBusinessProposalItemRequest): Partial<BusinessProposalItemDB> {
+  const dbItem: Partial<BusinessProposalItemDB> = {};
+  
+  if ('itemId' in apiItem && apiItem.itemId !== undefined) dbItem.item_id = apiItem.itemId;
+  if ('name' in apiItem && apiItem.name !== undefined) dbItem.name = apiItem.name;
+  if ('quantity' in apiItem && apiItem.quantity !== undefined) dbItem.quantity = apiItem.quantity;
+  if ('unitPrice' in apiItem && apiItem.unitPrice !== undefined) dbItem.unit_price = apiItem.unitPrice;
+  if ('discount' in apiItem && apiItem.discount !== undefined) dbItem.discount = apiItem.discount;
+  
+  // Calculate total if we have the necessary fields
+  if (dbItem.quantity !== undefined && dbItem.unit_price !== undefined) {
+    const discount = dbItem.discount || 0;
+    dbItem.total = (dbItem.quantity * dbItem.unit_price) - discount;
+  }
+  
+  return dbItem;
 }

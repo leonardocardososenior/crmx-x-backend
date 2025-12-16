@@ -16,7 +16,7 @@ import {
  */
 export function handleValidationError(validationResult: any, res: Response, req?: Request): boolean {
   if (!validationResult.success) {
-    // Get language from request
+    const requestId = req ? (req as any).requestId : undefined;
     const language = req ? getLanguageFromRequest(req) : 'pt-BR';
     
     // Extract the first validation error for a cleaner message
@@ -30,6 +30,7 @@ export function handleValidationError(validationResult: any, res: Response, req?
       
       // Determine error type based on Zod error
       let errorType = 'invalid_data';
+      let params: Record<string, any> = {};
       
       if (errorCode === 'invalid_type' && errorMessage.includes('Required')) {
         errorType = 'required';
@@ -37,21 +38,32 @@ export function handleValidationError(validationResult: any, res: Response, req?
         errorType = 'email';
       } else if (errorMessage.includes('uuid')) {
         errorType = 'uuid';
-      } else if (errorMessage.includes('min')) {
+      } else if (errorCode === 'too_small') {
         errorType = 'min';
-      } else if (errorMessage.includes('max')) {
+        params.minimum = firstError.minimum;
+      } else if (errorCode === 'too_big') {
         errorType = 'max';
+        params.maximum = firstError.maximum;
       }
       
-      message = createValidationMessage(field, errorType, language, {
-        minimum: firstError.minimum,
-        maximum: firstError.maximum
+      message = createValidationMessage(field, errorType, language, params);
+    }
+    
+    // Log validation error for debugging
+    if (requestId) {
+      logger.warn('VALIDATION', `Validation failed for request ${requestId}`, {
+        field: firstError?.path?.join('.'),
+        errorCode: firstError?.code,
+        errorMessage: firstError?.message,
+        url: req?.url,
+        method: req?.method
       });
     }
     
     res.status(400).json({
       message,
-      status: 400
+      status: 400,
+      requestId
     } as ErrorResponse);
     return true;
   }
@@ -62,12 +74,23 @@ export function handleValidationError(validationResult: any, res: Response, req?
  * Handle not found errors with consistent error response format
  */
 export function handleNotFound(entityName: string, res: Response, req?: Request): void {
+  const requestId = req ? (req as any).requestId : undefined;
   const language = req ? getLanguageFromRequest(req) : 'pt-BR';
   const message = getNotFoundMessage(entityName, language);
   
+  // Log not found error for debugging
+  if (requestId) {
+    logger.warn('NOT_FOUND', `Entity not found for request ${requestId}`, {
+      entityName,
+      url: req?.url,
+      method: req?.method
+    });
+  }
+  
   res.status(404).json({
     message,
-    status: 404
+    status: 404,
+    requestId
   } as ErrorResponse);
 }
 
@@ -81,53 +104,75 @@ export function handleDatabaseError(
   res: Response,
   req?: Request
 ): void {
-  logger.dbError(operation, tableName, error as Error);
-  
+  const requestId = req ? (req as any).requestId : undefined;
   const language = req ? getLanguageFromRequest(req) : 'pt-BR';
   const t = getTranslations(language);
   
-  // Handle foreign key constraint violations
-  if (error.code === '23503') {
-    let message = getRelationshipErrorMessage(error.details || '', language);
-    
-    res.status(400).json({
-      message,
-      status: 400
-    } as ErrorResponse);
-    return;
+  // Enhanced logging with request context
+  logger.dbError(operation, tableName, error as Error);
+  if (requestId) {
+    logger.error('DATABASE', `Database error for request ${requestId}`, error as Error, {
+      operation,
+      tableName,
+      errorCode: error.code,
+      errorDetails: error.details || error.detail,
+      url: req?.url,
+      method: req?.method
+    });
   }
   
-  // Handle constraint violations for deletion
-  if (error.code === '23503' && operation === 'DELETE') {
-    res.status(409).json({
-      message: t.errors.constraints.cannot_delete_with_relations,
-      status: 409
-    } as ErrorResponse);
-    return;
+  let statusCode = 500;
+  let message = t.errors.server.internal_error;
+  
+  // Handle specific database error codes
+  switch (error.code) {
+    case '23503': // Foreign key constraint violation
+      statusCode = operation === 'DELETE' ? 409 : 400;
+      message = operation === 'DELETE' 
+        ? t.errors.constraints.cannot_delete_with_relations
+        : getRelationshipErrorMessage(error.details || error.detail || '', language);
+      break;
+      
+    case '23505': // Unique constraint violation
+      statusCode = 409;
+      message = t.errors.constraints.duplicate_record;
+      break;
+      
+    case '23514': // Check constraint violation
+      statusCode = 400;
+      message = t.errors.constraints.data_constraint_violation;
+      break;
+      
+    case '42P01': // Undefined table
+      statusCode = 500;
+      message = t.errors.server.internal_error;
+      break;
+      
+    case '42703': // Undefined column
+      statusCode = 500;
+      message = t.errors.server.internal_error;
+      break;
+      
+    case '08006': // Connection failure
+      statusCode = 503;
+      message = t.errors.server.service_unavailable;
+      break;
+      
+    case 'PGRST116': // PostgREST row not found
+      statusCode = 404;
+      message = t.errors.not_found.route;
+      break;
+      
+    default:
+      statusCode = 500;
+      message = t.errors.server.internal_error;
+      break;
   }
   
-  // Handle unique constraint violations
-  if (error.code === '23505') {
-    res.status(400).json({
-      message: t.errors.constraints.duplicate_record,
-      status: 400
-    } as ErrorResponse);
-    return;
-  }
-  
-  // Handle check constraint violations
-  if (error.code === '23514') {
-    res.status(400).json({
-      message: t.errors.constraints.data_constraint_violation,
-      status: 400
-    } as ErrorResponse);
-    return;
-  }
-  
-  // Generic database error
-  res.status(500).json({
-    message: t.errors.server.internal_error,
-    status: 500
+  res.status(statusCode).json({
+    message,
+    status: statusCode,
+    requestId
   } as ErrorResponse);
 }
 
@@ -140,16 +185,29 @@ export function handleInternalError(
   res: Response,
   req?: Request
 ): void {
-  logger.error('CONTROLLER', `Error in ${operation}`, error as Error);
-  
+  const requestId = req ? (req as any).requestId : undefined;
   const language = req ? getLanguageFromRequest(req) : 'pt-BR';
   const t = getTranslations(language);
   
-  const message = error instanceof Error ? error.message : t.errors.server.internal_error;
+  // Enhanced logging with request context
+  logger.error('CONTROLLER', `Error in ${operation}`, error as Error);
+  if (requestId) {
+    logger.error('CONTROLLER', `Internal error for request ${requestId}`, error as Error, {
+      operation,
+      url: req?.url,
+      method: req?.method,
+      userAgent: req?.get('User-Agent'),
+      ip: req?.ip
+    });
+  }
+  
+  // Don't expose internal error details to client
+  const message = t.errors.server.internal_error;
   
   res.status(500).json({
     message,
-    status: 500
+    status: 500,
+    requestId
   } as ErrorResponse);
 }
 
@@ -157,14 +215,26 @@ export function handleInternalError(
  * Handle filter parsing errors
  */
 export function handleFilterError(filterError: any, res: Response, req?: Request): void {
+  const requestId = req ? (req as any).requestId : undefined;
   const language = req ? getLanguageFromRequest(req) : 'pt-BR';
   const t = getTranslations(language);
+  
+  // Log filter parsing error for debugging
+  if (requestId) {
+    logger.warn('FILTER', `Filter parsing error for request ${requestId}`, {
+      error: filterError.message || filterError,
+      url: req?.url,
+      method: req?.method,
+      filter: req?.query?.filter
+    });
+  }
   
   const message = filterError instanceof Error ? filterError.message : t.errors.filter.invalid_syntax;
   
   res.status(400).json({
     message,
-    status: 400
+    status: 400,
+    requestId
   } as ErrorResponse);
 }
 

@@ -9,11 +9,15 @@ import accountTimelineRoutes from './routes/accountTimelineRoutes';
 import userRoutes from './routes/userRoutes';
 import businessRoutes from './routes/businessRoutes';
 import itemRoutes from './routes/itemRoutes';
+import businessProposalRoutes from './routes/businessProposalRoutes';
+import businessProposalItemRoutes from './routes/businessProposalItemRoutes';
+import validationRoutes from './routes/validationRoutes';
 import { 
   requestIdMiddleware, 
   errorHandler, 
   notFoundHandler 
 } from './middleware/errorHandler';
+import { businessProposalErrorHandler } from './middleware/businessProposalErrorHandler';
 import { logger } from './utils/logger';
 
 const app = express();
@@ -41,15 +45,24 @@ const ACCOUNT_TIMELINE_API = BASE_API.concat("account-timeline");
 const USERS_API = BASE_API.concat("users");
 const BUSINESS_API = BASE_API.concat("business");
 const ITEMS_API = BASE_API.concat("items");
+const BUSINESS_PROPOSALS_API = BASE_API.concat("business-proposals");
+const BUSINESS_PROPOSAL_ITEMS_API = BASE_API.concat("business-proposal-items");
+const VALIDATION_API = BASE_API.concat("validation");
 
 app.use(ACCOUNT_API, accountRoutes);
 app.use(ACCOUNT_TIMELINE_API, accountTimelineRoutes);
 app.use(USERS_API, userRoutes);
 app.use(BUSINESS_API, businessRoutes);
 app.use(ITEMS_API, itemRoutes);
+app.use(BUSINESS_PROPOSALS_API, businessProposalRoutes);
+app.use(BUSINESS_PROPOSAL_ITEMS_API, businessProposalItemRoutes);
+app.use(VALIDATION_API, validationRoutes);
 
 // 404 handler for undefined routes
 app.use(notFoundHandler);
+
+// Business proposal specific error handling middleware
+app.use(businessProposalErrorHandler);
 
 // Global error handling middleware (must be last)
 app.use(errorHandler);
@@ -75,6 +88,9 @@ app.listen(PORT, () => {
   logger.info('SERVER', `Users: ${USERS_API}`);
   logger.info('SERVER', `Business: ${BUSINESS_API}`);
   logger.info('SERVER', `Items: ${ITEMS_API}`);
+  logger.info('SERVER', `Business Proposals: ${BUSINESS_PROPOSALS_API}`);
+  logger.info('SERVER', `Business Proposal Items: ${BUSINESS_PROPOSAL_ITEMS_API}`);
+  logger.info('SERVER', `Validation: ${VALIDATION_API}`);
 });
 
 export default app;

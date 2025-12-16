@@ -132,6 +132,78 @@ class Logger {
   serverError(error: Error): void {
     this.error('SERVER', 'Server error occurred', error);
   }
+
+  // Business proposal specific logging methods
+  proposalOperation(operation: string, proposalId?: string, userId?: string, data?: any): void {
+    this.info('BUSINESS_PROPOSAL', `${operation} operation`, { proposalId, userId, ...data });
+  }
+
+  proposalError(operation: string, error: Error, proposalId?: string, userId?: string): void {
+    this.error('BUSINESS_PROPOSAL', `${operation} operation failed`, error, { proposalId, userId });
+  }
+
+  proposalItemOperation(operation: string, itemId?: string, proposalId?: string, data?: any): void {
+    this.info('PROPOSAL_ITEM', `${operation} operation`, { itemId, proposalId, ...data });
+  }
+
+  proposalItemError(operation: string, error: Error, itemId?: string, proposalId?: string): void {
+    this.error('PROPOSAL_ITEM', `${operation} operation failed`, error, { itemId, proposalId });
+  }
+
+  // Enhanced request/response logging with more context
+  requestWithContext(method: string, path: string, requestId?: string, userId?: string, data?: any): void {
+    this.info('API_REQUEST', `${method} ${path}`, { requestId, userId, ...data });
+  }
+
+  responseWithContext(method: string, path: string, statusCode: number, requestId?: string, duration?: number): void {
+    this.info('API_RESPONSE', `${method} ${path} - ${statusCode}`, { requestId, statusCode, duration });
+  }
+
+  // Security and constraint violation logging
+  constraintViolation(constraintType: string, tableName: string, details?: string, requestId?: string): void {
+    this.warn('CONSTRAINT', `${constraintType} constraint violation on ${tableName}`, { 
+      constraintType, 
+      tableName, 
+      details, 
+      requestId 
+    });
+  }
+
+  securityEvent(eventType: string, details: string, requestId?: string, userId?: string): void {
+    this.warn('SECURITY', `Security event: ${eventType}`, { eventType, details, requestId, userId });
+  }
+
+  // Performance monitoring
+  performanceMetric(operation: string, duration: number, metadata?: any): void {
+    const level = duration > 5000 ? LogLevel.WARN : LogLevel.INFO;
+    this.log(level, 'PERFORMANCE', `${operation} completed in ${duration}ms`, metadata);
+  }
+
+  // Database connection monitoring
+  dbConnectionEvent(event: string, details?: any): void {
+    this.info('DB_CONNECTION', event, details);
+  }
+
+  // Rate limiting events
+  rateLimitEvent(identifier: string, limit: number, current: number, requestId?: string): void {
+    this.warn('RATE_LIMIT', `Rate limit approached for ${identifier}`, {
+      identifier,
+      limit,
+      current,
+      percentage: Math.round((current / limit) * 100),
+      requestId
+    });
+  }
+
+  // Business logic validation errors
+  businessValidationError(rule: string, entity: string, entityId?: string, details?: any): void {
+    this.warn('BUSINESS_VALIDATION', `Business rule violation: ${rule} for ${entity}`, {
+      rule,
+      entity,
+      entityId,
+      ...details
+    });
+  }
 }
 
 // Export singleton instance
