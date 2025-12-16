@@ -58,6 +58,12 @@ export const SupportedLocales = {
   EN_US: 'en-US'
 } as const;
 
+export const DashboardPeriods = {
+  THIS_MONTH: 'THIS_MONTH',
+  THIS_YEAR: 'THIS_YEAR',
+  LAST_QUARTER: 'LAST_QUARTER'
+} as const;
+
 // Type definitions derived from enums
 export type UserRole = typeof UserRoles[keyof typeof UserRoles];
 export type AccountStatus = typeof AccountStatuses[keyof typeof AccountStatuses];
@@ -68,6 +74,7 @@ export type ItemType = typeof ItemTypes[keyof typeof ItemTypes];
 export type TimelineType = typeof TimelineTypes[keyof typeof TimelineTypes];
 export type BusinessProposalStatus = typeof BusinessProposalStatuses[keyof typeof BusinessProposalStatuses];
 export type SupportedLocale = typeof SupportedLocales[keyof typeof SupportedLocales];
+export type DashboardPeriod = typeof DashboardPeriods[keyof typeof DashboardPeriods];
 
 // Validation helper functions
 export const isValidUserRole = (value: string): value is UserRole => {
@@ -106,6 +113,10 @@ export const isValidSupportedLocale = (value: string): value is SupportedLocale 
   return Object.values(SupportedLocales).includes(value as SupportedLocale);
 };
 
+export const isValidDashboardPeriod = (value: string): value is DashboardPeriod => {
+  return Object.values(DashboardPeriods).includes(value as DashboardPeriod);
+};
+
 // Default value helpers
 export const getDefaultUserRole = (): UserRole => UserRoles.SALES_REP;
 export const getDefaultAccountStatus = (): AccountStatus => AccountStatuses.ACTIVE;
@@ -115,3 +126,4 @@ export const getDefaultItemType = (): ItemType => ItemTypes.PRODUCT;
 export const getDefaultTimelineType = (): TimelineType => TimelineTypes.NOTE;
 export const getDefaultBusinessProposalStatus = (): BusinessProposalStatus => BusinessProposalStatuses.DRAFT;
 export const getDefaultSupportedLocale = (): SupportedLocale => SupportedLocales.PT_BR;
+export const getDefaultDashboardPeriod = (): DashboardPeriod => DashboardPeriods.THIS_MONTH;

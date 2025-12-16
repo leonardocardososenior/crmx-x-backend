@@ -1,13 +1,14 @@
 import { Request, Response } from 'express';
 import { supabaseAdmin } from '../supabaseClient';
-import { RevenuePerYearParamsSchema, MonthlyRevenueResponseType, MoreSalesByResponsibleResponseType } from '../schemas/dashboardSchemas';
-import { BusinessStages } from '../types';
+import { RevenuePerYearParamsSchema, DashboardQueryParamsSchema, MonthlyRevenueResponseType, MoreSalesByResponsibleResponseType, SalesFunnelResponseType, TotalRevenueResponseType, ActiveAccountsResponseType } from '../schemas/dashboardSchemas';
+import { BusinessStages, AccountStatuses } from '../types';
 import { 
   handleValidationError, 
   handleDatabaseError, 
   handleInternalError
 } from '../utils/controllerHelpers';
 import { getLanguageFromRequest, createLocalizedMonthlyResponse } from '../utils/translations';
+import { createClosingDateFilter } from '../utils/dateFilters';
 
 /**
  * Get revenue per year aggregated by month
@@ -26,14 +27,14 @@ export async function getRevenuePerYear(req: Request, res: Response): Promise<vo
     const { year } = validationResult.data;
 
     // Execute revenue aggregation query
-    // Filter by stage = 'Closed Won' and year from closing_date
+    // Filter by stage = 'Closed Won' and year from created_at
     // Group by month and calculate sum of values
     const { data: monthlyRevenue, error } = await supabaseAdmin
       .from('business')
-      .select('value, closing_date')
+      .select('value, created_at')
       .eq('stage', BusinessStages.CLOSED_WON)
-      .gte('closing_date', `${year}-01-01`)
-      .lt('closing_date', `${year + 1}-01-01`);
+      .gte('created_at', `${year}-01-01T00:00:00.000Z`)
+      .lt('created_at', `${year + 1}-01-01T00:00:00.000Z`);
 
     if (error) {
       handleDatabaseError('SELECT', 'business', error, res, req);
@@ -52,9 +53,9 @@ export async function getRevenuePerYear(req: Request, res: Response): Promise<vo
     // Aggregate revenue by month
     if (monthlyRevenue && monthlyRevenue.length > 0) {
       monthlyRevenue.forEach((business) => {
-        if (business.closing_date) {
-          const closingDate = new Date(business.closing_date);
-          const month = closingDate.getUTCMonth() + 1; // getUTCMonth() returns 0-11, we need 1-12
+        if (business.created_at) {
+          const createdDate = new Date(business.created_at);
+          const month = createdDate.getUTCMonth() + 1; // getUTCMonth() returns 0-11, we need 1-12
           monthlyTotals[month] += business.value || 0;
         }
       });
@@ -84,22 +85,37 @@ export async function getRevenuePerYear(req: Request, res: Response): Promise<vo
 
 /**
  * Get sales performance by responsible users
- * GET /api/dashboard/more-sales-by-responsible
+ * GET /api/dashboard/more-sales-by-responsible?period=THIS_MONTH|THIS_YEAR|LAST_QUARTER
  */
 export async function getMoreSalesByResponsible(req: Request, res: Response): Promise<void> {
   try {
+    // Validate period parameter using Zod schema
+    const validationResult = DashboardQueryParamsSchema.safeParse(req.query);
+    
+    if (!validationResult.success) {
+      handleValidationError(validationResult, res, req);
+      return;
+    }
+
+    const { period } = validationResult.data;
+    const dateFilter = createClosingDateFilter(period);
+
     // Execute aggregation query to join users and business tables
-    // Filter by CLOSED_WON stage and aggregate sales values
+    // Filter by CLOSED_WON stage, period, and aggregate sales values
     // Order results by sale value in ascending order
     const { data: businessData, error } = await supabaseAdmin
       .from('business')
       .select(`
         value,
         responsible_id,
+        closing_date,
         users!inner(id, name)
       `)
       .eq('stage', BusinessStages.CLOSED_WON)
-      .not('responsible_id', 'is', null);
+      .not('responsible_id', 'is', null)
+      .not('closing_date', 'is', null)
+      .gte('closing_date', dateFilter.gte)
+      .lte('closing_date', dateFilter.lte);
 
     if (error) {
       handleDatabaseError('SELECT', 'business with users', error, res, req);
@@ -144,5 +160,134 @@ export async function getMoreSalesByResponsible(req: Request, res: Response): Pr
 
   } catch (error) {
     handleInternalError('fetching more sales by responsible', error, res, req);
+  }
+}
+
+/**
+ * Get sales funnel distribution by stage
+ * GET /api/dashboard/sales-funnel?period=THIS_MONTH|THIS_YEAR|LAST_QUARTER
+ */
+export async function getSalesFunnel(req: Request, res: Response): Promise<void> {
+  try {
+    // Validate period parameter using Zod schema
+    const validationResult = DashboardQueryParamsSchema.safeParse(req.query);
+    
+    if (!validationResult.success) {
+      handleValidationError(validationResult, res, req);
+      return;
+    }
+
+    const { period } = validationResult.data;
+    const dateFilter = createClosingDateFilter(period);
+
+    // Execute database query to count business records by stage
+    // Filter out CLOSED_LOST stage records and filter by period
+    const { data: businessData, error } = await supabaseAdmin
+      .from('business')
+      .select('stage, closing_date')
+      .neq('stage', BusinessStages.CLOSED_LOST)
+      .not('closing_date', 'is', null)
+      .gte('closing_date', dateFilter.gte)
+      .lte('closing_date', dateFilter.lte);
+
+    if (error) {
+      handleDatabaseError('SELECT', 'business', error, res, req);
+      return;
+    }
+
+    // Process the data to aggregate counts by stage
+    const stageCounts: Record<string, number> = {};
+
+    if (businessData && businessData.length > 0) {
+      businessData.forEach((business) => {
+        const stage = business.stage;
+        if (stage) {
+          stageCounts[stage] = (stageCounts[stage] || 0) + 1;
+        }
+      });
+    }
+
+    // Return formatted response (only stages with counts > 0 are included)
+    res.status(200).json(stageCounts);
+
+  } catch (error) {
+    handleInternalError('fetching sales funnel', error, res, req);
+  }
+}
+
+/**
+ * Get total revenue from all closed-won business deals
+ * GET /api/dashboard/total-revenue?period=THIS_MONTH|THIS_YEAR|LAST_QUARTER
+ */
+export async function getTotalRevenue(req: Request, res: Response): Promise<void> {
+  try {
+    // Validate period parameter using Zod schema
+    const validationResult = DashboardQueryParamsSchema.safeParse(req.query);
+    
+    if (!validationResult.success) {
+      handleValidationError(validationResult, res, req);
+      return;
+    }
+
+    const { period } = validationResult.data;
+    const dateFilter = createClosingDateFilter(period);
+
+    // Execute database query to sum business values where stage = CLOSED_WON and within period
+    const { data: businessData, error } = await supabaseAdmin
+      .from('business')
+      .select('value, closing_date')
+      .eq('stage', BusinessStages.CLOSED_WON)
+      .not('closing_date', 'is', null)
+      .gte('closing_date', dateFilter.gte)
+      .lte('closing_date', dateFilter.lte);
+
+    if (error) {
+      handleDatabaseError('SELECT', 'business', error, res, req);
+      return;
+    }
+
+    // Calculate total revenue, handling empty results by returning zero
+    let total = 0;
+    if (businessData && businessData.length > 0) {
+      total = businessData.reduce((sum, business) => {
+        return sum + (business.value || 0);
+      }, 0);
+    }
+
+    // Return formatted response
+    const response: TotalRevenueResponseType = { total };
+    res.status(200).json(response);
+
+  } catch (error) {
+    handleInternalError('fetching total revenue', error, res, req);
+  }
+}
+
+/**
+ * Get total count of active accounts
+ * GET /api/dashboard/active-accounts
+ */
+export async function getActiveAccounts(req: Request, res: Response): Promise<void> {
+  try {
+    // Execute database query to count accounts where status = ACTIVE
+    const { data: accountData, error } = await supabaseAdmin
+      .from('account')
+      .select('id')
+      .eq('status', AccountStatuses.ACTIVE);
+
+    if (error) {
+      handleDatabaseError('SELECT', 'account', error, res, req);
+      return;
+    }
+
+    // Calculate total count, handling empty results by returning zero
+    const total = accountData ? accountData.length : 0;
+
+    // Return formatted response
+    const response: ActiveAccountsResponseType = { total };
+    res.status(200).json(response);
+
+  } catch (error) {
+    handleInternalError('fetching active accounts', error, res, req);
   }
 }
