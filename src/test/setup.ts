@@ -3,22 +3,9 @@
 
 // Set test environment variables
 process.env.NODE_ENV = 'test';
+process.env.SUPABASE_URL = 'https://test.supabase.co';
+process.env.SUPABASE_ANON_KEY = 'test-anon-key';
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 
-// Mock console methods to reduce noise during tests
-const originalConsoleError = console.error;
-const originalConsoleWarn = console.warn;
-
-beforeAll(() => {
-  // Suppress console.error and console.warn during tests unless needed
-  console.error = jest.fn();
-  console.warn = jest.fn();
-});
-
-afterAll(() => {
-  // Restore original console methods
-  console.error = originalConsoleError;
-  console.warn = originalConsoleWarn;
-});
-
-// Global test timeout
+// Increase test timeout for integration tests
 jest.setTimeout(10000);

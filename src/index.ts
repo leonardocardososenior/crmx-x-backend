@@ -11,6 +11,7 @@ import businessRoutes from './routes/businessRoutes';
 import itemRoutes from './routes/itemRoutes';
 import businessProposalRoutes from './routes/businessProposalRoutes';
 import businessProposalItemRoutes from './routes/businessProposalItemRoutes';
+import dashboardRoutes from './routes/dashboardRoutes';
 
 import { 
   requestIdMiddleware, 
@@ -47,6 +48,7 @@ const BUSINESS_API = BASE_API.concat("business");
 const ITEMS_API = BASE_API.concat("items");
 const BUSINESS_PROPOSALS_API = BASE_API.concat("business-proposals");
 const BUSINESS_PROPOSAL_ITEMS_API = BASE_API.concat("business-proposal-items");
+const DASHBOARD_API = BASE_API.concat("dashboard");
 
 
 app.use(ACCOUNT_API, accountRoutes);
@@ -56,6 +58,7 @@ app.use(BUSINESS_API, businessRoutes);
 app.use(ITEMS_API, itemRoutes);
 app.use(BUSINESS_PROPOSALS_API, businessProposalRoutes);
 app.use(BUSINESS_PROPOSAL_ITEMS_API, businessProposalItemRoutes);
+app.use(DASHBOARD_API, dashboardRoutes);
 
 
 // 404 handler for undefined routes
@@ -90,6 +93,7 @@ app.listen(PORT, () => {
   logger.info('SERVER', `Items: ${ITEMS_API}`);
   logger.info('SERVER', `Business Proposals: ${BUSINESS_PROPOSALS_API}`);
   logger.info('SERVER', `Business Proposal Items: ${BUSINESS_PROPOSAL_ITEMS_API}`);
+  logger.info('SERVER', `Dashboard: ${DASHBOARD_API}`);
 
 });
 

@@ -8,6 +8,7 @@ Este documento contém exemplos de payload para todas as entidades do sistema CR
 ```json
 {
   "name": "João Silva",
+  "username": "joao.silva",
   "email": "joao.silva@empresa.com",
   "role": "SALES_REP",
   "manager": {
@@ -20,6 +21,7 @@ Este documento contém exemplos de payload para todas as entidades do sistema CR
 ```json
 {
   "name": "João Silva Santos",
+  "username": "joao.santos",
   "role": "MANAGER",
   "manager": {
     "id": "550e8400-e29b-41d4-a716-446655440001"
@@ -32,6 +34,7 @@ Este documento contém exemplos de payload para todas as entidades do sistema CR
 {
   "id": "123e4567-e89b-12d3-a456-426614174000",
   "name": "João Silva",
+  "username": "joao.silva",
   "email": "joao.silva@empresa.com",
   "role": "SALES_REP",
   "manager": {
@@ -48,6 +51,7 @@ Este documento contém exemplos de payload para todas as entidades do sistema CR
     {
       "id": "123e4567-e89b-12d3-a456-426614174000",
       "name": "João Silva",
+      "username": "joao.silva",
       "email": "joao.silva@empresa.com",
       "role": "SALES_REP",
       "manager": {
@@ -58,6 +62,7 @@ Este documento contém exemplos de payload para todas as entidades do sistema CR
     {
       "id": "456e7890-e12b-34c5-d678-901234567890",
       "name": "Maria Santos",
+      "username": "maria.santos",
       "email": "maria.santos@empresa.com",
       "role": "MANAGER",
       "createdAt": "2024-12-15T14:20:00Z"

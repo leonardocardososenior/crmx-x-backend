@@ -8,6 +8,7 @@ CREATE TABLE users
 (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name       TEXT NOT NULL,
+    username   TEXT NOT NULL UNIQUE,
     role       TEXT NOT NULL,
     manager_id UUID REFERENCES users (id),
     email      TEXT NOT NULL,
@@ -115,6 +116,7 @@ CREATE INDEX idx_business_account_id ON business (account_id);
 CREATE INDEX idx_business_responsible_id ON business (responsible_id);
 CREATE INDEX idx_business_stage ON business (stage);
 CREATE INDEX idx_users_manager_id ON users (manager_id);
+CREATE INDEX idx_users_username ON users (username);
 CREATE INDEX idx_item_name ON item (name);
 CREATE INDEX idx_item_type ON item (type);
 CREATE INDEX idx_item_price ON item (price);

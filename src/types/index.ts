@@ -1,104 +1,12 @@
-// Database Enums - centralized enum definitions and validation
-export const UserRoles = {
-  ADMIN: 'ADMIN',
-  MANAGER: 'MANAGER',
-  SALES_REP: 'SALES_REP'
-} as const;
-
-export const AccountStatuses = {
-  ACTIVE: 'ACTIVE',
-  INACTIVE: 'INACTIVE'
-} as const;
-
-export const AccountTypes = {
-  LEAD: 'Lead',
-  PROSPECT: 'Prospect',
-  CLIENT: 'Client'
-} as const;
-
-export const BusinessStages = {
-  PROSPECTING: 'Prospecting',
-  QUALIFICATION: 'Qualification',
-  PROPOSAL: 'Proposal',
-  NEGOTIATION: 'Negotiation',
-  CLOSED_WON: 'Closed Won',
-  CLOSED_LOST: 'Closed Lost'
-} as const;
-
-export const Currencies = {
-  BRL: 'BRL',
-  USD: 'USD',
-  EUR: 'EUR'
-} as const;
-
-export const ItemTypes = {
-  PRODUCT: 'PRODUCT',
-  SERVICE: 'SERVICE'
-} as const;
-
-export const TimelineTypes = {
-  NOTE: 'NOTE',
-  CALL: 'CALL',
-  EMAIL: 'EMAIL',
-  MEETING: 'MEETING',
-  SYSTEM: 'SYSTEM'
-} as const;
-
-export const BusinessProposalStatuses = {
-  DRAFT: 'Rascunho',
-  IN_REVIEW: 'Em Revisão',
-  SENT: 'Enviado',
-  ACCEPTED: 'Aceito',
-  REJECTED: 'Rejeitado'
-} as const;
-
-// Type definitions derived from enums
-export type UserRole = typeof UserRoles[keyof typeof UserRoles];
-export type AccountStatus = typeof AccountStatuses[keyof typeof AccountStatuses];
-export type AccountType = typeof AccountTypes[keyof typeof AccountTypes];
-export type BusinessStage = typeof BusinessStages[keyof typeof BusinessStages];
-export type Currency = typeof Currencies[keyof typeof Currencies];
-export type ItemType = typeof ItemTypes[keyof typeof ItemTypes];
-export type TimelineType = typeof TimelineTypes[keyof typeof TimelineTypes];
-export type BusinessProposalStatus = typeof BusinessProposalStatuses[keyof typeof BusinessProposalStatuses];
-
-// Validation helper functions
-export const isValidUserRole = (value: string): value is UserRole => {
-  return Object.values(UserRoles).includes(value as UserRole);
-};
-
-export const isValidAccountStatus = (value: string): value is AccountStatus => {
-  return Object.values(AccountStatuses).includes(value as AccountStatus);
-};
-
-export const isValidAccountType = (value: string): value is AccountType => {
-  return Object.values(AccountTypes).includes(value as AccountType);
-};
-
-export const isValidBusinessStage = (value: string): value is BusinessStage => {
-  return Object.values(BusinessStages).includes(value as BusinessStage);
-};
-
-export const isValidCurrency = (value: string): value is Currency => {
-  return Object.values(Currencies).includes(value as Currency);
-};
-
-export const isValidItemType = (value: string): value is ItemType => {
-  return Object.values(ItemTypes).includes(value as ItemType);
-};
-
-export const isValidTimelineType = (value: string): value is TimelineType => {
-  return Object.values(TimelineTypes).includes(value as TimelineType);
-};
-
-export const isValidBusinessProposalStatus = (value: string): value is BusinessProposalStatus => {
-  return Object.values(BusinessProposalStatuses).includes(value as BusinessProposalStatus);
-};
+// Import enums from separate file
+export * from './enums';
+import type { SupportedLocale } from './enums';
 
 // User Interface (Database representation - snake_case)
 export interface UserDB {
   id: string;
   name: string;
+  username: string;
   role: string;
   manager_id?: string;
   email: string;
@@ -130,6 +38,7 @@ export interface BusinessProposalReference {
 export interface User {
   id: string;
   name: string;
+  username: string;
   role: string;
   manager?: UserReference;
   email: string;
@@ -377,6 +286,7 @@ export interface UpdateBusinessRequest {
 
 export interface CreateUserRequest {
   name: string;
+  username: string;
   role?: string;
   manager?: UserReference;
   email: string;
@@ -384,6 +294,7 @@ export interface CreateUserRequest {
 
 export interface UpdateUserRequest {
   name?: string;
+  username?: string;
   role?: string;
   manager?: UserReference;
   email?: string;
@@ -514,14 +425,28 @@ export interface BusinessProposalItemQueryParams {
   size?: number;
 }
 
-// Default value helpers
-export const getDefaultUserRole = (): UserRole => UserRoles.SALES_REP;
-export const getDefaultAccountStatus = (): AccountStatus => AccountStatuses.ACTIVE;
-export const getDefaultAccountType = (): AccountType => AccountTypes.LEAD;
-export const getDefaultCurrency = (): Currency => Currencies.BRL;
-export const getDefaultItemType = (): ItemType => ItemTypes.PRODUCT;
-export const getDefaultTimelineType = (): TimelineType => TimelineTypes.NOTE;
-export const getDefaultBusinessProposalStatus = (): BusinessProposalStatus => BusinessProposalStatuses.DRAFT;
+// Dashboard-specific types and constants
+
+// Dashboard interfaces for revenue queries
+export interface RevenuePerYearParams {
+  year: number;
+}
+
+export interface MonthlyRevenueResponse {
+  [monthName: string]: number;
+}
+
+// More sales by responsible response interface
+export interface SalesByResponsibleResponse {
+  responsibleId: string;
+  responsibleName: string;
+  saleValue: number;
+}
+
+// Month name translation types (implementation in translations.ts)
+export type MonthNamesByLocale = Record<SupportedLocale, readonly string[]>;
+
+
 
 // Utility function to remove null and undefined fields from objects
 function removeNullUndefinedFields<T extends Record<string, any>>(obj: T): Partial<T> {
@@ -614,6 +539,7 @@ export function userDbToApi(dbUser: UserDB): User {
   const user = {
     id: dbUser.id,
     name: dbUser.name,
+    username: dbUser.username,
     role: dbUser.role,
     manager: dbUser.manager_id ? { id: dbUser.manager_id } : undefined,
     email: dbUser.email,
@@ -627,6 +553,7 @@ export function userApiToDb(apiUser: CreateUserRequest | UpdateUserRequest): Par
   const dbUser: Partial<UserDB> = {};
   
   if ('name' in apiUser && apiUser.name !== undefined) dbUser.name = apiUser.name;
+  if ('username' in apiUser && apiUser.username !== undefined) dbUser.username = apiUser.username;
   if ('role' in apiUser && apiUser.role !== undefined) dbUser.role = apiUser.role;
   if ('manager' in apiUser && apiUser.manager !== undefined) dbUser.manager_id = apiUser.manager.id;
   if ('email' in apiUser && apiUser.email !== undefined) dbUser.email = apiUser.email;

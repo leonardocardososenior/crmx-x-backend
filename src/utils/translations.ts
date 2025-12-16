@@ -747,3 +747,62 @@ export function getTimelineSuccessMessage(
 export function getTimelineNotFoundMessage(language: Language = 'pt-BR'): string {
   return getNotFoundMessage('timeline', language);
 }
+
+// Dashboard month localization utilities
+export const MonthNames = {
+  'pt-BR': [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ],
+  'en-US': [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ],
+  'es-CO': [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ]
+} as const;
+
+/**
+ * Translates a month number (1-12) to localized month name
+ * @param monthNumber - Month number (1 = January, 12 = December)
+ * @param language - Target language for translation
+ * @returns Localized month name
+ */
+export function translateMonthName(monthNumber: number, language: Language = 'pt-BR'): string {
+  // Validate month number range
+  if (monthNumber < 1 || monthNumber > 12) {
+    throw new Error(`Invalid month number: ${monthNumber}. Must be between 1 and 12.`);
+  }
+  
+  const monthNames = MonthNames[language] || MonthNames['pt-BR'];
+  return monthNames[monthNumber - 1]; // Array is 0-indexed, months are 1-indexed
+}
+
+/**
+ * Creates a complete monthly revenue response object with localized month names
+ * @param monthlyData - Array of objects with month number and revenue value
+ * @param language - Target language for month names
+ * @returns Object with localized month names as keys and revenue as values
+ */
+export function createLocalizedMonthlyResponse(
+  monthlyData: Array<{ month: number; revenue: number }>,
+  language: Language = 'pt-BR'
+): Record<string, number> {
+  const response: Record<string, number> = {};
+  
+  // Initialize all months with zero revenue
+  for (let month = 1; month <= 12; month++) {
+    const monthName = translateMonthName(month, language);
+    response[monthName] = 0;
+  }
+  
+  // Fill in actual revenue data
+  monthlyData.forEach(({ month, revenue }) => {
+    const monthName = translateMonthName(month, language);
+    response[monthName] = revenue;
+  });
+  
+  return response;
+}
