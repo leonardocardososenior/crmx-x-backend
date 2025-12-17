@@ -304,7 +304,8 @@ export async function sendOrderToERP(req: Request, res: Response): Promise<void>
             // Verificar se a resposta foi bem-sucedida
             if (!erpResponse.ok) {
                 const errorText = await erpResponse.text();
-                throw new Error(`ERP API retornou erro ${erpResponse.status}: ${errorText}`);
+                const responseMessage = JSON.parse(errorText).message;
+                throw new Error(responseMessage);
             }
 
             // Processar a resposta do ERP
