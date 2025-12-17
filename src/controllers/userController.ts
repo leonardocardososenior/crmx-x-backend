@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { supabaseAdmin } from '../supabaseClient';
+import { TenantRequest } from '../types/tenant';
+import { getTenantAdminClient } from '../utils/tenantClientHelper';
 import { 
   CreateUserSchema, 
   UpdateUserSchema, 
@@ -18,7 +20,7 @@ import {
   handleFilterError,
   buildPaginatedQuery,
   createPaginatedResponse,
-  checkEntityExists
+  checkEntityExistsInTenant
 } from '../utils/controllerHelpers';
 import { getLanguageFromRequest, getSuccessMessage } from '../utils/translations';
 
@@ -26,7 +28,7 @@ import { getLanguageFromRequest, getSuccessMessage } from '../utils/translations
  * Create a new user
  * POST /api/users
  */
-export async function createUser(req: Request, res: Response): Promise<void> {
+export async function createUser(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate request body using Zod schema
     const validationResult = CreateUserSchema.safeParse(req.body);
@@ -45,8 +47,12 @@ export async function createUser(req: Request, res: Response): Promise<void> {
       role: userData.role || UserRoles.SALES_REP
     };
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Insert user into database
-    const { data: createdUser, error } = await supabaseAdmin
+    const { data: createdUser, error } = await tenantClient
+      .getClient()
       .from('users')
       .insert(userToInsert)
       .select()
@@ -70,7 +76,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
  * Get users with filtering and pagination
  * GET /api/users
  */
-export async function getUsers(req: Request, res: Response): Promise<void> {
+export async function getUsers(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate query parameters using Zod schema
     const validationResult = UserQueryParamsSchema.safeParse(req.query);
@@ -86,8 +92,11 @@ export async function getUsers(req: Request, res: Response): Promise<void> {
     const page = queryParams.page || 1;
     const size = queryParams.size || 10;
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Build base query
-    let query = supabaseAdmin.from('users').select('*', { count: 'exact' });
+    let query = tenantClient.getClient().from('users').select('*', { count: 'exact' });
 
     // Apply dynamic filter if provided
     if (queryParams.filter) {
@@ -150,7 +159,7 @@ export async function getUsers(req: Request, res: Response): Promise<void> {
  * Get a single user by ID
  * GET /api/users/:id
  */
-export async function getUserById(req: Request, res: Response): Promise<void> {
+export async function getUserById(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate route parameters
     const paramValidation = UserIdParamSchema.safeParse(req.params);
@@ -162,8 +171,12 @@ export async function getUserById(req: Request, res: Response): Promise<void> {
 
     const { id } = paramValidation.data;
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Fetch user from database
-    const { data: user, error } = await supabaseAdmin
+    const { data: user, error } = await tenantClient
+      .getClient()
       .from('users')
       .select('*')
       .eq('id', id)
@@ -187,7 +200,7 @@ export async function getUserById(req: Request, res: Response): Promise<void> {
  * Update an existing user
  * PUT /api/users/:id
  */
-export async function updateUser(req: Request, res: Response): Promise<void> {
+export async function updateUser(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate route parameters
     const paramValidation = UserIdParamSchema.safeParse(req.params);
@@ -210,7 +223,7 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
     const updateData: UpdateUserInput = validationResult.data;
 
     // Check if user exists first
-    const exists = await checkEntityExists('users', id);
+    const exists = await checkEntityExistsInTenant(req, 'users', id);
     if (!exists) {
       handleNotFound('User', res, req);
       return;
@@ -219,8 +232,12 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
     // Convert API data (camelCase) to database format (snake_case)
     const dbUpdateData = userApiToDb(updateData);
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Update user in database
-    const { data: updatedUser, error } = await supabaseAdmin
+    const { data: updatedUser, error } = await tenantClient
+      .getClient()
       .from('users')
       .update(dbUpdateData)
       .eq('id', id)
@@ -245,7 +262,7 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
  * Delete a user
  * DELETE /api/users/:id
  */
-export async function deleteUser(req: Request, res: Response): Promise<void> {
+export async function deleteUser(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate route parameters
     const paramValidation = UserIdParamSchema.safeParse(req.params);
@@ -258,15 +275,19 @@ export async function deleteUser(req: Request, res: Response): Promise<void> {
     const { id } = paramValidation.data;
 
     // Check if user exists first
-    const exists = await checkEntityExists('users', id);
+    const exists = await checkEntityExistsInTenant(req, 'users', id);
     if (!exists) {
       handleNotFound('User', res, req);
       return;
     }
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Delete user from database
     // Note: Cascading operations for related accounts and business will be handled by database constraints
-    const { error } = await supabaseAdmin
+    const { error } = await tenantClient
+      .getClient()
       .from('users')
       .delete()
       .eq('id', id);

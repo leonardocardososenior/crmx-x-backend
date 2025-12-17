@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../supabaseClient';
+import { TenantAwareSupabaseClient } from '../utils/tenantAwareSupabaseClient';
 import { logger } from '../utils/logger';
 import { 
   validateProposalCreationWorkflow,
@@ -31,7 +32,11 @@ export interface IntegrationResult<T = any> {
 /**
  * Complete business proposal creation workflow with validation
  */
-export async function integratedProposalCreation(proposalData: any, requestId?: string): Promise<IntegrationResult> {
+export async function integratedProposalCreation(
+  proposalData: any, 
+  tenantClient?: TenantAwareSupabaseClient,
+  requestId?: string
+): Promise<IntegrationResult> {
   const operationId = requestId || `create_${Date.now()}`;
   
   logger.proposalOperation('INTEGRATION_CREATE_START', undefined, proposalData.responsibleId, {
@@ -58,8 +63,11 @@ export async function integratedProposalCreation(proposalData: any, requestId?: 
     let createdItems: BusinessProposalItemDB[] = [];
 
     try {
+      // Use tenant-aware client if provided, otherwise fall back to supabaseAdmin
+      const client = tenantClient ? tenantClient.getClient() : supabaseAdmin;
+      
       // Create proposal
-      const { data: proposal, error: proposalError } = await supabaseAdmin
+      const { data: proposal, error: proposalError } = await client
         .from('business_proposal')
         .insert({
           business_id: proposalData.businessId,
@@ -97,14 +105,14 @@ export async function integratedProposalCreation(proposalData: any, requestId?: 
           };
         });
 
-        const { data: items, error: itemsError } = await supabaseAdmin
+        const { data: items, error: itemsError } = await client
           .from('business_proposal_item')
           .insert(itemsToInsert)
           .select();
 
         if (itemsError) {
           // Rollback proposal creation
-          await supabaseAdmin
+          await client
             .from('business_proposal')
             .delete()
             .eq('id', createdProposal.id);
@@ -136,7 +144,8 @@ export async function integratedProposalCreation(proposalData: any, requestId?: 
       // Cleanup on failure
       if (createdProposal) {
         try {
-          await supabaseAdmin
+          const client = tenantClient ? tenantClient.getClient() : supabaseAdmin;
+          await client
             .from('business_proposal')
             .delete()
             .eq('id', createdProposal.id);
@@ -161,7 +170,12 @@ export async function integratedProposalCreation(proposalData: any, requestId?: 
 /**
  * Complete business proposal update workflow with validation
  */
-export async function integratedProposalUpdate(proposalId: string, updateData: any, requestId?: string): Promise<IntegrationResult> {
+export async function integratedProposalUpdate(
+  proposalId: string, 
+  updateData: any, 
+  tenantClient?: TenantAwareSupabaseClient,
+  requestId?: string
+): Promise<IntegrationResult> {
   const operationId = requestId || `update_${Date.now()}`;
   
   logger.proposalOperation('INTEGRATION_UPDATE_START', proposalId, updateData.responsibleId, { operationId });
@@ -179,6 +193,8 @@ export async function integratedProposalUpdate(proposalId: string, updateData: a
     }
 
     // 2. Perform update
+    const client = tenantClient ? tenantClient.getClient() : supabaseAdmin;
+    
     const dbUpdateData: any = {};
     if (updateData.businessId !== undefined) dbUpdateData.business_id = updateData.businessId;
     if (updateData.responsibleId !== undefined) dbUpdateData.responsible_id = updateData.responsibleId;
@@ -191,7 +207,7 @@ export async function integratedProposalUpdate(proposalId: string, updateData: a
     if (updateData.termsAndConditions !== undefined) dbUpdateData.terms_and_conditions = updateData.termsAndConditions;
     if (updateData.showUnitPrices !== undefined) dbUpdateData.show_unit_prices = updateData.showUnitPrices;
 
-    const { data: updatedProposal, error: updateError } = await supabaseAdmin
+    const { data: updatedProposal, error: updateError } = await client
       .from('business_proposal')
       .update(dbUpdateData)
       .eq('id', proposalId)
@@ -203,7 +219,7 @@ export async function integratedProposalUpdate(proposalId: string, updateData: a
     }
 
     // 3. Fetch updated items
-    const { data: items } = await supabaseAdmin
+    const { data: items } = await client
       .from('business_proposal_item')
       .select('*')
       .eq('proposal_id', proposalId)
@@ -239,7 +255,11 @@ export async function integratedProposalUpdate(proposalId: string, updateData: a
 /**
  * Complete business proposal deletion workflow with cascade validation
  */
-export async function integratedProposalDeletion(proposalId: string, requestId?: string): Promise<IntegrationResult> {
+export async function integratedProposalDeletion(
+  proposalId: string, 
+  tenantClient?: TenantAwareSupabaseClient,
+  requestId?: string
+): Promise<IntegrationResult> {
   const operationId = requestId || `delete_${Date.now()}`;
   
   logger.proposalOperation('INTEGRATION_DELETE_START', proposalId, undefined, { operationId });
@@ -257,13 +277,15 @@ export async function integratedProposalDeletion(proposalId: string, requestId?:
     }
 
     // 2. Get item count for logging
-    const { count: itemCount } = await supabaseAdmin
+    const client = tenantClient ? tenantClient.getClient() : supabaseAdmin;
+    
+    const { count: itemCount } = await client
       .from('business_proposal_item')
       .select('*', { count: 'exact', head: true })
       .eq('proposal_id', proposalId);
 
     // 3. Perform deletion (cascade will handle items)
-    const { error: deleteError } = await supabaseAdmin
+    const { error: deleteError } = await client
       .from('business_proposal')
       .delete()
       .eq('id', proposalId);
@@ -299,7 +321,12 @@ export async function integratedProposalDeletion(proposalId: string, requestId?:
 /**
  * Complete business proposal item creation workflow
  */
-export async function integratedItemCreation(proposalId: string, itemData: any, requestId?: string): Promise<IntegrationResult> {
+export async function integratedItemCreation(
+  proposalId: string, 
+  itemData: any, 
+  tenantClient?: TenantAwareSupabaseClient,
+  requestId?: string
+): Promise<IntegrationResult> {
   const operationId = requestId || `create_item_${Date.now()}`;
   
   logger.proposalItemOperation('INTEGRATION_ITEM_CREATE_START', undefined, proposalId, { operationId });
@@ -320,7 +347,9 @@ export async function integratedItemCreation(proposalId: string, itemData: any, 
     const total = (itemData.quantity * itemData.unitPrice) - (itemData.discount || 0);
 
     // 3. Create item
-    const { data: createdItem, error: createError } = await supabaseAdmin
+    const client = tenantClient ? tenantClient.getClient() : supabaseAdmin;
+    
+    const { data: createdItem, error: createError } = await client
       .from('business_proposal_item')
       .insert({
         proposal_id: proposalId,
@@ -368,14 +397,21 @@ export async function integratedItemCreation(proposalId: string, itemData: any, 
 /**
  * Complete business proposal item update workflow
  */
-export async function integratedItemUpdate(itemId: string, updateData: any, requestId?: string): Promise<IntegrationResult> {
+export async function integratedItemUpdate(
+  itemId: string, 
+  updateData: any, 
+  tenantClient?: TenantAwareSupabaseClient,
+  requestId?: string
+): Promise<IntegrationResult> {
   const operationId = requestId || `update_item_${Date.now()}`;
   
   logger.proposalItemOperation('INTEGRATION_ITEM_UPDATE_START', itemId, undefined, { operationId });
 
   try {
     // 1. Get existing item to determine proposal ID
-    const { data: existingItem, error: fetchError } = await supabaseAdmin
+    const client = tenantClient ? tenantClient.getClient() : supabaseAdmin;
+    
+    const { data: existingItem, error: fetchError } = await client
       .from('business_proposal_item')
       .select('*')
       .eq('id', itemId)
@@ -418,7 +454,7 @@ export async function integratedItemUpdate(itemId: string, updateData: any, requ
     dbUpdateData.total = (newQuantity * newUnitPrice) - newDiscount;
 
     // 4. Perform update
-    const { data: updatedItem, error: updateError } = await supabaseAdmin
+    const { data: updatedItem, error: updateError } = await client
       .from('business_proposal_item')
       .update(dbUpdateData)
       .eq('id', itemId)

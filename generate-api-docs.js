@@ -9,7 +9,8 @@
 const { endpointDocumentationOrchestrator } = require('./dist/utils/endpointDocumentationOrchestrator');
 const fs = require('fs');
 
-console.log('🚀 Gerando documentação OpenAPI...');
+// Note: This is a Node.js script, not using the logger system
+console.log('[' + new Date().toISOString() + '] INFO [DOCUMENTATION] | Gerando documentação OpenAPI...');
 
 try {
   // Gerar documentação completa
@@ -58,13 +59,13 @@ try {
   const yaml = jsonToYaml(spec);
   fs.writeFileSync('api-docs.yaml', yaml);
   
-  console.log('✅ Arquivo api-docs.yaml gerado com sucesso!');
-  console.log(`📊 Documentação gerada:`);
-  console.log(`   - ${Object.keys(spec.paths).length} endpoints`);
-  console.log(`   - ${Object.keys(spec.components.schemas).length} schemas`);
-  console.log(`   - 7 módulos principais`);
+  console.log('[' + new Date().toISOString() + '] INFO [DOCUMENTATION] | Arquivo api-docs.yaml gerado com sucesso!');
+  console.log('[' + new Date().toISOString() + '] INFO [DOCUMENTATION] | Documentação gerada:');
+  console.log('[' + new Date().toISOString() + '] INFO [DOCUMENTATION] |    - ' + Object.keys(spec.paths).length + ' endpoints');
+  console.log('[' + new Date().toISOString() + '] INFO [DOCUMENTATION] |    - ' + Object.keys(spec.components.schemas).length + ' schemas');
+  console.log('[' + new Date().toISOString() + '] INFO [DOCUMENTATION] |    - 7 módulos principais');
   
 } catch (error) {
-  console.error('❌ Erro ao gerar documentação:', error.message);
+  console.error('[' + new Date().toISOString() + '] ERROR [DOCUMENTATION] | Erro ao gerar documentação: ' + error.message);
   process.exit(1);
 }

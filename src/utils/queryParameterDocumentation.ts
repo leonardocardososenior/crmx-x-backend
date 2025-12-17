@@ -7,6 +7,7 @@
 import { z } from './zodExtensions';
 import { registry } from '../config/openapi';
 import { convertZodToOpenAPI } from './zodToOpenAPI';
+import { logger } from './logger';
 
 /**
  * Interface for OpenAPI parameter definition
@@ -561,15 +562,15 @@ export class QueryParameterDocumentation {
   public registerQueryParameterSchemas(): void {
     // Parameters are documented in the OpenAPI configuration file
     // and applied to endpoints during route documentation
-    console.log('📋 Query parameter schemas documented and ready for use');
+    logger.info('DOCUMENTATION', 'Query parameter schemas documented and ready for use');
     
     const paginationParams = this.documentPaginationParameters();
     const filterParams = this.documentCommonFilterParameters();
     const entityParams = this.documentEntitySpecificParameters();
     
-    console.log(`✅ Documented ${paginationParams.length} pagination parameters`);
-    console.log(`✅ Documented ${filterParams.length} filtering parameters`);
-    console.log(`✅ Documented ${Object.values(entityParams).flat().length} entity-specific parameters`);
+    logger.info('DOCUMENTATION', `Documented ${paginationParams.length} pagination parameters`);
+    logger.info('DOCUMENTATION', `Documented ${filterParams.length} filtering parameters`);
+    logger.info('DOCUMENTATION', `Documented ${Object.values(entityParams).flat().length} entity-specific parameters`);
   }
 
   /**

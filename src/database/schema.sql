@@ -136,3 +136,22 @@ CREATE INDEX idx_business_proposal_date ON business_proposal (date);
 CREATE INDEX idx_business_proposal_send_status ON business_proposal (send_status);
 CREATE INDEX idx_business_proposal_item_proposal_id ON business_proposal_item (proposal_id);
 CREATE INDEX idx_business_proposal_item_item_id ON business_proposal_item (item_id);
+
+-- Function to check if a schema exists (for multi-tenant schema management)
+CREATE OR REPLACE FUNCTION check_schema_exists(schema_name TEXT)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1 
+        FROM information_schema.schemata 
+        WHERE schema_name = $1
+    );
+END;
+$$;
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION check_schema_exists(TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION check_schema_exists(TEXT) TO service_role;

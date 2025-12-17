@@ -1,3 +1,4 @@
+// Simplified version of the main application using the new tenant strategy
 // Load environment variables first, before any other imports
 import dotenv from 'dotenv';
 dotenv.config();
@@ -12,8 +13,6 @@ import itemRoutes from './routes/itemRoutes';
 import businessProposalRoutes from './routes/businessProposalRoutes';
 import businessProposalItemRoutes from './routes/businessProposalItemRoutes';
 import dashboardRoutes from './routes/dashboardRoutes';
-import tenantErrorRoutes from './routes/tenantErrorRoutes';
-import tenantPerformanceRoutes from './routes/tenantPerformanceRoutes';
 
 import { 
   requestIdMiddleware, 
@@ -22,19 +21,14 @@ import {
 } from './middleware/errorHandler';
 import { businessProposalErrorHandler } from './middleware/businessProposalErrorHandler';
 import { 
-  tenantMiddleware, 
-  tenantCleanupMiddleware 
-} from './middleware/tenantMiddleware';
-import { 
-  tenantErrorHandler,
-  tenantErrorMonitoringMiddleware 
-} from './middleware/tenantErrorHandler';
+  simpleTenantMiddleware, 
+  requireTenantContext,
+  simpleTenantCleanup 
+} from './middleware/simpleTenantMiddleware';
 import { logger } from './utils/logger';
-import { tenantPerformanceMonitor } from './utils/tenantPerformanceMonitor';
-import { tenantConnectionPool } from './utils/tenantConnectionPool';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 3001; // Forçar porta 3001
 
 // Request ID middleware (must be first)
 app.use(requestIdMiddleware);
@@ -42,17 +36,21 @@ app.use(requestIdMiddleware);
 // Health check endpoint (before tenant middleware to avoid tenant validation)
 app.get('/health-check', (req, res) => {
   res.status(200).json({ 
-    status: 'OK'
+    status: 'OK',
+    message: 'Simplified multi-tenant API is running'
   });
 });
 
-// Tenant middleware (must be before all routes) - Requirements: 5.1, 5.2, 5.4
-app.use(tenantMiddleware());
+// Simplified tenant middleware - assumes schemas exist
+app.use(simpleTenantMiddleware);
 
 // Basic middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Require tenant context for all API routes
+app.use('/api/*', requireTenantContext);
 
 // API routes
 const BASE_API = "/api/";
@@ -64,9 +62,6 @@ const ITEMS_API = BASE_API.concat("items");
 const BUSINESS_PROPOSALS_API = BASE_API.concat("business-proposals");
 const BUSINESS_PROPOSAL_ITEMS_API = BASE_API.concat("business-proposal-items");
 const DASHBOARD_API = BASE_API.concat("dashboard");
-const TENANT_ERRORS_API = BASE_API.concat("tenant-errors");
-const TENANT_PERFORMANCE_API = BASE_API.concat("tenant-performance");
-
 
 app.use(ACCOUNT_API, accountRoutes);
 app.use(ACCOUNT_TIMELINE_API, accountTimelineRoutes);
@@ -76,20 +71,12 @@ app.use(ITEMS_API, itemRoutes);
 app.use(BUSINESS_PROPOSALS_API, businessProposalRoutes);
 app.use(BUSINESS_PROPOSAL_ITEMS_API, businessProposalItemRoutes);
 app.use(DASHBOARD_API, dashboardRoutes);
-app.use(TENANT_ERRORS_API, tenantErrorRoutes);
-app.use(TENANT_PERFORMANCE_API, tenantPerformanceRoutes);
 
-// Tenant cleanup middleware (after all routes) - Requirements: 5.5
-app.use(tenantCleanupMiddleware());
+// Simplified tenant cleanup middleware (after all routes)
+app.use(simpleTenantCleanup);
 
 // 404 handler for undefined routes
 app.use(notFoundHandler);
-
-// Tenant error monitoring middleware (before other error handlers)
-app.use(tenantErrorMonitoringMiddleware);
-
-// Tenant-specific error handling middleware
-app.use(tenantErrorHandler());
 
 // Business proposal specific error handling middleware
 app.use(businessProposalErrorHandler);
@@ -100,31 +87,20 @@ app.use(errorHandler);
 // Graceful shutdown handling
 process.on('SIGTERM', () => {
   logger.info('SERVER', 'SIGTERM received, shutting down gracefully');
-  
-  // Shutdown performance monitoring and connection pool
-  tenantPerformanceMonitor.shutdown();
-  tenantConnectionPool.shutdown();
-  
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
   logger.info('SERVER', 'SIGINT received, shutting down gracefully');
-  
-  // Shutdown performance monitoring and connection pool
-  tenantPerformanceMonitor.shutdown();
-  tenantConnectionPool.shutdown();
-  
   process.exit(0);
 });
-
-
 
 // Start server
 app.listen(PORT, () => {
   logger.serverStart(Number(PORT));
   
-  logger.info('SERVER', `Health check available at /health`);
+  logger.info('SERVER', `Simplified multi-tenant API started`);
+  logger.info('SERVER', `Health check available at /health-check`);
   logger.info('SERVER', `API endpoints available at:`);
   logger.info('SERVER', `Accounts: ${ACCOUNT_API}`);
   logger.info('SERVER', `Account Timeline: ${ACCOUNT_TIMELINE_API}`);
@@ -134,8 +110,8 @@ app.listen(PORT, () => {
   logger.info('SERVER', `Business Proposals: ${BUSINESS_PROPOSALS_API}`);
   logger.info('SERVER', `Business Proposal Items: ${BUSINESS_PROPOSAL_ITEMS_API}`);
   logger.info('SERVER', `Dashboard: ${DASHBOARD_API}`);
-  logger.info('SERVER', `Tenant Errors: ${TENANT_ERRORS_API}`);
-  logger.info('SERVER', `Tenant Performance: ${TENANT_PERFORMANCE_API}`);
+  
+  logger.info('SERVER', `Note: This version assumes all tenant schemas exist and are managed manually`);
 });
 
 export default app;

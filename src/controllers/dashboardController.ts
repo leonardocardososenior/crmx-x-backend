@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { supabaseAdmin } from '../supabaseClient';
+import { TenantRequest } from '../types/tenant';
+import { getTenantAdminClient } from '../utils/tenantClientHelper';
 import { DashboardQueryParamsSchema, RevenuePerPeriodQueryParamsSchema, MonthlyRevenueResponseType, MoreSalesByResponsibleResponseType, SalesFunnelResponseType, TotalRevenueResponseType, ActiveAccountsResponseType, NewBusinessResponseType } from '../schemas/dashboardSchemas';
 import { BusinessStages, AccountStatuses } from '../types';
 import { 
@@ -14,7 +16,7 @@ import { createClosingDateFilter, calculatePeriodRange, getDateRangeForPeriod } 
  * Get revenue per period aggregated by month
  * GET /api/dashboard/revenue-per-period?period=THIS_MONTH|THIS_YEAR|LAST_QUARTER
  */
-export async function getRevenuePerPeriod(req: Request, res: Response): Promise<void> {
+export async function getRevenuePerPeriod(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate period parameter using Zod schema
     const validationResult = RevenuePerPeriodQueryParamsSchema.safeParse(req.query);
@@ -27,10 +29,14 @@ export async function getRevenuePerPeriod(req: Request, res: Response): Promise<
     const { period } = validationResult.data;
     const dateFilter = getDateRangeForPeriod(period);
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Execute revenue aggregation query
     // Filter by stage = 'Closed Won' and period from closing_date
     // Group by month and calculate sum of values
-    const { data: monthlyRevenue, error } = await supabaseAdmin
+    const { data: monthlyRevenue, error } = await tenantClient
+      .getClient()
       .from('business')
       .select('value, closing_date')
       .eq('stage', BusinessStages.CLOSED_WON)
@@ -89,7 +95,7 @@ export async function getRevenuePerPeriod(req: Request, res: Response): Promise<
  * Get sales performance by responsible users
  * GET /api/dashboard/more-sales-by-responsible?period=THIS_MONTH|THIS_YEAR|LAST_QUARTER
  */
-export async function getMoreSalesByResponsible(req: Request, res: Response): Promise<void> {
+export async function getMoreSalesByResponsible(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate period parameter using Zod schema
     const validationResult = DashboardQueryParamsSchema.safeParse(req.query);
@@ -102,10 +108,14 @@ export async function getMoreSalesByResponsible(req: Request, res: Response): Pr
     const { period } = validationResult.data;
     const dateFilter = createClosingDateFilter(period);
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Execute aggregation query to join users and business tables
     // Filter by CLOSED_WON stage, period, and aggregate sales values
     // Order results by sale value in ascending order
-    const { data: businessData, error } = await supabaseAdmin
+    const { data: businessData, error } = await tenantClient
+      .getClient()
       .from('business')
       .select(`
         value,
@@ -172,7 +182,7 @@ export async function getMoreSalesByResponsible(req: Request, res: Response): Pr
  * Get sales funnel distribution by stage
  * GET /api/dashboard/sales-funnel?period=THIS_MONTH|THIS_YEAR|LAST_QUARTER
  */
-export async function getSalesFunnel(req: Request, res: Response): Promise<void> {
+export async function getSalesFunnel(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate period parameter using Zod schema
     const validationResult = DashboardQueryParamsSchema.safeParse(req.query);
@@ -185,9 +195,13 @@ export async function getSalesFunnel(req: Request, res: Response): Promise<void>
     const { period } = validationResult.data;
     const dateFilter = createClosingDateFilter(period);
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Execute database query to count business records by stage
     // Filter out CLOSED_LOST stage records and filter by period
-    const { data: businessData, error } = await supabaseAdmin
+    const { data: businessData, error } = await tenantClient
+      .getClient()
       .from('business')
       .select('stage, closing_date')
       .neq('stage', BusinessStages.CLOSED_LOST)
@@ -224,7 +238,7 @@ export async function getSalesFunnel(req: Request, res: Response): Promise<void>
  * Get total revenue from all closed-won business deals
  * GET /api/dashboard/total-revenue?period=THIS_MONTH|THIS_YEAR|LAST_QUARTER
  */
-export async function getTotalRevenue(req: Request, res: Response): Promise<void> {
+export async function getTotalRevenue(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate period parameter using Zod schema
     const validationResult = DashboardQueryParamsSchema.safeParse(req.query);
@@ -237,8 +251,12 @@ export async function getTotalRevenue(req: Request, res: Response): Promise<void
     const { period } = validationResult.data;
     const dateFilter = createClosingDateFilter(period);
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Execute database query to sum business values where stage = CLOSED_WON and within period
-    const { data: businessData, error } = await supabaseAdmin
+    const { data: businessData, error } = await tenantClient
+      .getClient()
       .from('business')
       .select('value, closing_date')
       .eq('stage', BusinessStages.CLOSED_WON)
@@ -272,10 +290,14 @@ export async function getTotalRevenue(req: Request, res: Response): Promise<void
  * Get total count of active accounts
  * GET /api/dashboard/active-accounts
  */
-export async function getActiveAccounts(req: Request, res: Response): Promise<void> {
+export async function getActiveAccounts(req: TenantRequest, res: Response): Promise<void> {
   try {
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Execute database query to count accounts where status = ACTIVE
-    const { data: accountData, error } = await supabaseAdmin
+    const { data: accountData, error } = await tenantClient
+      .getClient()
       .from('account')
       .select('id')
       .eq('status', AccountStatuses.ACTIVE);
@@ -301,7 +323,7 @@ export async function getActiveAccounts(req: Request, res: Response): Promise<vo
  * Get count of new businesses created in a specific period
  * GET /api/dashboard/new-business?period=THIS_MONTH|THIS_YEAR|LAST_QUARTER
  */
-export async function getNewBusiness(req: Request, res: Response): Promise<void> {
+export async function getNewBusiness(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate period parameter using DashboardPeriod enum
     const validationResult = DashboardQueryParamsSchema.safeParse(req.query);
@@ -316,8 +338,12 @@ export async function getNewBusiness(req: Request, res: Response): Promise<void>
     // Calculate date range using period calculation utilities
     const { start, end } = calculatePeriodRange(period);
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Implement database query to count businesses where created_at is within period
-    const { data: businessData, error } = await supabaseAdmin
+    const { data: businessData, error } = await tenantClient
+      .getClient()
       .from('business')
       .select('id, created_at')
       .not('created_at', 'is', null)

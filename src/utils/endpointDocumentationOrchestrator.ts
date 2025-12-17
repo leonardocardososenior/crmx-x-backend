@@ -4,6 +4,7 @@ import { schemaRegistry } from './schemaRegistry';
 import { queryParameterIntegration } from './queryParameterIntegration';
 import { comprehensiveQueryDocumentation } from './comprehensiveQueryDocumentation';
 import { generateOpenAPISpec } from '../config/openapi';
+import { logger } from './logger';
 
 /**
  * Endpoint Documentation Orchestrator
@@ -60,26 +61,26 @@ export class EndpointDocumentationOrchestrator {
       return; // Avoid duplicate generation
     }
 
-    console.log('🚀 Starting endpoint documentation generation...');
+    logger.info('DOCUMENTATION', 'Starting endpoint documentation generation...');
 
     // Step 1: Register all entity schemas
-    console.log('📋 Registering entity schemas...');
+    logger.info('DOCUMENTATION', 'Registering entity schemas...');
     schemaRegistry.registerEntitySchemas();
 
     // Step 2: Register all CRUD operations for entities
-    console.log('🔧 Documenting CRUD operations...');
+    logger.info('DOCUMENTATION', 'Documenting CRUD operations...');
     entityDocumentation.registerAllEntityOperations();
 
     // Step 3: Register dashboard and special endpoints
-    console.log('📊 Documenting dashboard and special endpoints...');
+    logger.info('DOCUMENTATION', 'Documenting dashboard and special endpoints...');
     specialEndpointsDocumentation.registerAllSpecialEndpoints();
 
     // Step 4: Enhance all endpoints with comprehensive query parameter documentation
-    console.log('🔍 Enhancing endpoints with query parameter documentation...');
+    logger.info('DOCUMENTATION', 'Enhancing endpoints with query parameter documentation...');
     queryParameterIntegration.registerAllEnhancedRoutes();
 
     this.documentationGenerated = true;
-    console.log('✅ Endpoint documentation generation completed!');
+    logger.info('DOCUMENTATION', 'Endpoint documentation generation completed!');
   }
 
   /**
@@ -87,34 +88,34 @@ export class EndpointDocumentationOrchestrator {
    * @param components - Array of components to generate ('schemas', 'crud', 'dashboard', 'special', 'queryParams')
    */
   public generatePartialDocumentation(components: Array<'schemas' | 'crud' | 'dashboard' | 'special' | 'queryParams'>): void {
-    console.log(`🚀 Starting partial documentation generation for: ${components.join(', ')}`);
+    logger.info('DOCUMENTATION', `Starting partial documentation generation for: ${components.join(', ')}`);
 
     if (components.includes('schemas')) {
-      console.log('📋 Registering entity schemas...');
+      logger.info('DOCUMENTATION', 'Registering entity schemas...');
       schemaRegistry.registerEntitySchemas();
     }
 
     if (components.includes('crud')) {
-      console.log('🔧 Documenting CRUD operations...');
+      logger.info('DOCUMENTATION', 'Documenting CRUD operations...');
       entityDocumentation.registerAllEntityOperations();
     }
 
     if (components.includes('dashboard')) {
-      console.log('📊 Documenting dashboard endpoints...');
+      logger.info('DOCUMENTATION', 'Documenting dashboard endpoints...');
       specialEndpointsDocumentation.registerDashboardEndpoints();
     }
 
     if (components.includes('special')) {
-      console.log('🔗 Documenting special endpoints...');
+      logger.info('DOCUMENTATION', 'Documenting special endpoints...');
       specialEndpointsDocumentation.registerSpecialEndpoints();
     }
 
     if (components.includes('queryParams')) {
-      console.log('🔍 Enhancing endpoints with query parameter documentation...');
+      logger.info('DOCUMENTATION', 'Enhancing endpoints with query parameter documentation...');
       queryParameterIntegration.registerAllEnhancedRoutes();
     }
 
-    console.log('✅ Partial documentation generation completed!');
+    logger.info('DOCUMENTATION', 'Partial documentation generation completed!');
   }
 
   /**
@@ -193,7 +194,7 @@ export class EndpointDocumentationOrchestrator {
     // Generate the OpenAPI specification
     const spec = generateOpenAPISpec();
 
-    console.log('📄 OpenAPI specification generated successfully!');
+    logger.info('DOCUMENTATION', 'OpenAPI specification generated successfully!');
     return spec;
   }
 
@@ -282,7 +283,7 @@ export class EndpointDocumentationOrchestrator {
   public resetDocumentation(): void {
     this.documentationGenerated = false;
     schemaRegistry.resetRegistration();
-    console.log('🔄 Documentation state reset');
+    logger.info('DOCUMENTATION', 'Documentation state reset');
   }
 
   /**

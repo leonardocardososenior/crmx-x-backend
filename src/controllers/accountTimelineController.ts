@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { supabaseAdmin } from '../supabaseClient';
+import { TenantRequest } from '../types/tenant';
+import { getTenantAdminClient } from '../utils/tenantClientHelper';
 import { 
   CreateAccountTimelineSchema, 
   UpdateAccountTimelineSchema, 
@@ -21,7 +23,7 @@ import {
   handleFilterError,
   buildPaginatedQuery,
   createPaginatedResponse,
-  checkEntityExists
+  checkEntityExistsInTenant
 } from '../utils/controllerHelpers';
 import { getLanguageFromRequest, getSuccessMessage } from '../utils/translations';
 
@@ -29,7 +31,7 @@ import { getLanguageFromRequest, getSuccessMessage } from '../utils/translations
  * Create a new account timeline record
  * POST /api/account-timeline
  */
-export async function createAccountTimeline(req: Request, res: Response): Promise<void> {
+export async function createAccountTimeline(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate request body using Zod schema
     const validationResult = CreateAccountTimelineSchema.safeParse(req.body);
@@ -41,7 +43,7 @@ export async function createAccountTimeline(req: Request, res: Response): Promis
     const timelineData = validationResult.data!;
 
     // Check if referenced account exists
-    const accountExists = await checkEntityExists('account', timelineData.account.id);
+    const accountExists = await checkEntityExistsInTenant(req, 'account', timelineData.account.id);
     if (!accountExists) {
       res.status(400).json({
         message: 'Referenced account does not exist',
@@ -51,7 +53,7 @@ export async function createAccountTimeline(req: Request, res: Response): Promis
     }
 
     // Check if referenced user exists
-    const userExists = await checkEntityExists('users', timelineData.responsible.id);
+    const userExists = await checkEntityExistsInTenant(req, 'users', timelineData.responsible.id);
     if (!userExists) {
       res.status(400).json({
         message: 'Referenced user does not exist',
@@ -63,8 +65,12 @@ export async function createAccountTimeline(req: Request, res: Response): Promis
     // Convert API data (camelCase) to database format (snake_case)
     const dbTimelineData = accountTimelineApiToDb(timelineData);
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Insert timeline record into database
-    const { data: createdTimeline, error } = await supabaseAdmin
+    const { data: createdTimeline, error } = await tenantClient
+      .getClient()
       .from('account_timeline')
       .insert(dbTimelineData)
       .select()
@@ -88,7 +94,7 @@ export async function createAccountTimeline(req: Request, res: Response): Promis
  * Get account timeline records with filtering and pagination
  * GET /api/account-timeline
  */
-export async function getAccountTimelines(req: Request, res: Response): Promise<void> {
+export async function getAccountTimelines(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate query parameters using Zod schema
     const validationResult = AccountTimelineQueryParamsSchema.safeParse(req.query);
@@ -103,8 +109,11 @@ export async function getAccountTimelines(req: Request, res: Response): Promise<
     const page = queryParams.page || 1;
     const size = queryParams.size || 10;
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Build base query
-    let query = supabaseAdmin.from('account_timeline').select('*', { count: 'exact' });
+    let query = tenantClient.getClient().from('account_timeline').select('*', { count: 'exact' });
 
     // Apply specific filters
     if (queryParams.accountId) {
@@ -210,7 +219,7 @@ export async function getAccountTimelines(req: Request, res: Response): Promise<
  * Get a single account timeline record by ID
  * GET /api/account-timeline/:id
  */
-export async function getAccountTimelineById(req: Request, res: Response): Promise<void> {
+export async function getAccountTimelineById(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate route parameters
     const paramValidation = AccountTimelineIdParamSchema.safeParse(req.params);
@@ -221,8 +230,12 @@ export async function getAccountTimelineById(req: Request, res: Response): Promi
 
     const { id } = paramValidation.data!;
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Fetch timeline record from database
-    const { data: timeline, error } = await supabaseAdmin
+    const { data: timeline, error } = await tenantClient
+      .getClient()
       .from('account_timeline')
       .select('*')
       .eq('id', id)
@@ -246,7 +259,7 @@ export async function getAccountTimelineById(req: Request, res: Response): Promi
  * Update an existing account timeline record
  * PUT /api/account-timeline/:id
  */
-export async function updateAccountTimeline(req: Request, res: Response): Promise<void> {
+export async function updateAccountTimeline(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate route parameters
     const paramValidation = AccountTimelineIdParamSchema.safeParse(req.params);
@@ -267,7 +280,7 @@ export async function updateAccountTimeline(req: Request, res: Response): Promis
     const updateData = validationResult.data!;
 
     // Check if timeline record exists first
-    const exists = await checkEntityExists('account_timeline', id);
+    const exists = await checkEntityExistsInTenant(req, 'account_timeline', id);
     if (!exists) {
       handleNotFound('Timeline record', res, req);
       return;
@@ -275,7 +288,7 @@ export async function updateAccountTimeline(req: Request, res: Response): Promis
 
     // Check foreign key constraints if they are being updated
     if (updateData.account) {
-      const accountExists = await checkEntityExists('account', updateData.account.id);
+      const accountExists = await checkEntityExistsInTenant(req, 'account', updateData.account.id);
       if (!accountExists) {
         res.status(400).json({
           message: 'Referenced account does not exist',
@@ -286,7 +299,7 @@ export async function updateAccountTimeline(req: Request, res: Response): Promis
     }
 
     if (updateData.responsible) {
-      const userExists = await checkEntityExists('users', updateData.responsible.id);
+      const userExists = await checkEntityExistsInTenant(req, 'users', updateData.responsible.id);
       if (!userExists) {
         res.status(400).json({
           message: 'Referenced user does not exist',
@@ -299,8 +312,12 @@ export async function updateAccountTimeline(req: Request, res: Response): Promis
     // Convert API data (camelCase) to database format (snake_case)
     const dbUpdateData = accountTimelineApiToDb(updateData);
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Update timeline record in database
-    const { data: updatedTimeline, error } = await supabaseAdmin
+    const { data: updatedTimeline, error } = await tenantClient
+      .getClient()
       .from('account_timeline')
       .update(dbUpdateData)
       .eq('id', id)
@@ -325,7 +342,7 @@ export async function updateAccountTimeline(req: Request, res: Response): Promis
  * Delete an account timeline record
  * DELETE /api/account-timeline/:id
  */
-export async function deleteAccountTimeline(req: Request, res: Response): Promise<void> {
+export async function deleteAccountTimeline(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate route parameters
     const paramValidation = AccountTimelineIdParamSchema.safeParse(req.params);
@@ -337,14 +354,18 @@ export async function deleteAccountTimeline(req: Request, res: Response): Promis
     const { id } = paramValidation.data!;
 
     // Check if timeline record exists first
-    const exists = await checkEntityExists('account_timeline', id);
+    const exists = await checkEntityExistsInTenant(req, 'account_timeline', id);
     if (!exists) {
       handleNotFound('Timeline record', res, req);
       return;
     }
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Delete timeline record from database
-    const { error } = await supabaseAdmin
+    const { error } = await tenantClient
+      .getClient()
       .from('account_timeline')
       .delete()
       .eq('id', id);
@@ -372,7 +393,7 @@ export async function deleteAccountTimeline(req: Request, res: Response): Promis
  * Get timeline records for a specific account
  * GET /api/accounts/:accountId/timeline
  */
-export async function getAccountTimelineByAccountId(req: Request, res: Response): Promise<void> {
+export async function getAccountTimelineByAccountId(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate route parameters (accountId)
     const paramValidation = z.object({
@@ -395,7 +416,7 @@ export async function getAccountTimelineByAccountId(req: Request, res: Response)
     const queryParams = queryValidation.data!;
 
     // Check if account exists
-    const accountExists = await checkEntityExists('account', accountId);
+    const accountExists = await checkEntityExistsInTenant(req, 'account', accountId);
     if (!accountExists) {
       handleNotFound('Account', res, req);
       return;
@@ -405,8 +426,12 @@ export async function getAccountTimelineByAccountId(req: Request, res: Response)
     const page = queryParams.page || 1;
     const size = queryParams.size || 10;
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Build base query for specific account
-    let query = supabaseAdmin
+    let query = tenantClient
+      .getClient()
       .from('account_timeline')
       .select('*', { count: 'exact' })
       .eq('account_id', accountId);

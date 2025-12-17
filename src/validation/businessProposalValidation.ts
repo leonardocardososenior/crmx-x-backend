@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../supabaseClient';
+import { TenantAwareSupabaseClient } from '../utils/tenantAwareSupabaseClient';
 import { BusinessProposalStatuses } from '../types';
 import { logger } from '../utils/logger';
 
@@ -16,7 +17,10 @@ export interface ValidationResult {
 /**
  * Validate complete business proposal creation workflow
  */
-export async function validateProposalCreationWorkflow(proposalData: any): Promise<ValidationResult> {
+export async function validateProposalCreationWorkflow(
+  proposalData: any,
+  tenantClient?: TenantAwareSupabaseClient
+): Promise<ValidationResult> {
   const result: ValidationResult = {
     isValid: true,
     errors: [],
@@ -24,6 +28,9 @@ export async function validateProposalCreationWorkflow(proposalData: any): Promi
   };
 
   try {
+    // Use tenant-aware client if provided, otherwise fall back to supabaseAdmin
+    const client = tenantClient ? tenantClient.getClient() : supabaseAdmin;
+    
     // 1. Validate required fields
     const requiredFields = ['businessId', 'responsibleId', 'title', 'date', 'value', 'items'];
     for (const field of requiredFields) {
@@ -35,7 +42,7 @@ export async function validateProposalCreationWorkflow(proposalData: any): Promi
 
     // 2. Validate business exists and is accessible
     if (proposalData.businessId) {
-      const { data: business, error } = await supabaseAdmin
+      const { data: business, error } = await client
         .from('business')
         .select('id, title, stage')
         .eq('id', proposalData.businessId)
@@ -51,7 +58,7 @@ export async function validateProposalCreationWorkflow(proposalData: any): Promi
 
     // 3. Validate responsible user exists and has appropriate role
     if (proposalData.responsibleId) {
-      const { data: user, error } = await supabaseAdmin
+      const { data: user, error } = await client
         .from('users')
         .select('id, name, role')
         .eq('id', proposalData.responsibleId)
@@ -78,7 +85,7 @@ export async function validateProposalCreationWorkflow(proposalData: any): Promi
         
         // Validate item exists
         if (item.itemId) {
-          const { data: catalogItem, error } = await supabaseAdmin
+          const { data: catalogItem, error } = await client
             .from('item')
             .select('id, name, price')
             .eq('id', item.itemId)
@@ -145,7 +152,11 @@ export async function validateProposalCreationWorkflow(proposalData: any): Promi
 /**
  * Validate complete business proposal update workflow
  */
-export async function validateProposalUpdateWorkflow(proposalId: string, updateData: any): Promise<ValidationResult> {
+export async function validateProposalUpdateWorkflow(
+  proposalId: string, 
+  updateData: any,
+  tenantClient?: TenantAwareSupabaseClient
+): Promise<ValidationResult> {
   const result: ValidationResult = {
     isValid: true,
     errors: [],
@@ -153,8 +164,11 @@ export async function validateProposalUpdateWorkflow(proposalId: string, updateD
   };
 
   try {
+    // Use tenant-aware client if provided, otherwise fall back to supabaseAdmin
+    const client = tenantClient ? tenantClient.getClient() : supabaseAdmin;
+    
     // 1. Validate proposal exists
-    const { data: existingProposal, error: proposalError } = await supabaseAdmin
+    const { data: existingProposal, error: proposalError } = await client
       .from('business_proposal')
       .select('*')
       .eq('id', proposalId)
@@ -184,7 +198,7 @@ export async function validateProposalUpdateWorkflow(proposalId: string, updateD
 
     // 3. Validate business relationship (if being updated)
     if (updateData.businessId && updateData.businessId !== existingProposal.business_id) {
-      const { data: business, error } = await supabaseAdmin
+      const { data: business, error } = await client
         .from('business')
         .select('id, title')
         .eq('id', updateData.businessId)
@@ -198,7 +212,7 @@ export async function validateProposalUpdateWorkflow(proposalId: string, updateD
 
     // 4. Validate responsible user (if being updated)
     if (updateData.responsibleId && updateData.responsibleId !== existingProposal.responsible_id) {
-      const { data: user, error } = await supabaseAdmin
+      const { data: user, error } = await client
         .from('users')
         .select('id, name, role')
         .eq('id', updateData.responsibleId)
@@ -213,7 +227,7 @@ export async function validateProposalUpdateWorkflow(proposalId: string, updateD
     // 5. Validate value changes
     if (updateData.value !== undefined && updateData.value !== existingProposal.value) {
       // Get current items total
-      const { data: items } = await supabaseAdmin
+      const { data: items } = await client
         .from('business_proposal_item')
         .select('total')
         .eq('proposal_id', proposalId);
@@ -238,7 +252,12 @@ export async function validateProposalUpdateWorkflow(proposalId: string, updateD
 /**
  * Validate business proposal item operations
  */
-export async function validateProposalItemWorkflow(proposalId: string, itemData: any, operation: 'create' | 'update'): Promise<ValidationResult> {
+export async function validateProposalItemWorkflow(
+  proposalId: string, 
+  itemData: any, 
+  operation: 'create' | 'update',
+  tenantClient?: TenantAwareSupabaseClient
+): Promise<ValidationResult> {
   const result: ValidationResult = {
     isValid: true,
     errors: [],
@@ -246,8 +265,11 @@ export async function validateProposalItemWorkflow(proposalId: string, itemData:
   };
 
   try {
+    // Use tenant-aware client if provided, otherwise fall back to supabaseAdmin
+    const client = tenantClient ? tenantClient.getClient() : supabaseAdmin;
+    
     // 1. Validate proposal exists and is editable
-    const { data: proposal, error: proposalError } = await supabaseAdmin
+    const { data: proposal, error: proposalError } = await client
       .from('business_proposal')
       .select('id, status, title')
       .eq('id', proposalId)
@@ -266,7 +288,7 @@ export async function validateProposalItemWorkflow(proposalId: string, itemData:
 
     // 2. Validate item exists in catalog
     if (itemData.itemId) {
-      const { data: catalogItem, error } = await supabaseAdmin
+      const { data: catalogItem, error } = await client
         .from('item')
         .select('id, name, price, type')
         .eq('id', itemData.itemId)
@@ -310,7 +332,7 @@ export async function validateProposalItemWorkflow(proposalId: string, itemData:
 
     // 4. For updates, validate item exists
     if (operation === 'update' && itemData.id) {
-      const { data: existingItem, error } = await supabaseAdmin
+      const { data: existingItem, error } = await client
         .from('business_proposal_item')
         .select('id, proposal_id')
         .eq('id', itemData.id)
@@ -337,7 +359,10 @@ export async function validateProposalItemWorkflow(proposalId: string, itemData:
 /**
  * Validate cascade deletion operations
  */
-export async function validateCascadeDeletion(proposalId: string): Promise<ValidationResult> {
+export async function validateCascadeDeletion(
+  proposalId: string,
+  tenantClient?: TenantAwareSupabaseClient
+): Promise<ValidationResult> {
   const result: ValidationResult = {
     isValid: true,
     errors: [],
@@ -345,8 +370,11 @@ export async function validateCascadeDeletion(proposalId: string): Promise<Valid
   };
 
   try {
+    // Use tenant-aware client if provided, otherwise fall back to supabaseAdmin
+    const client = tenantClient ? tenantClient.getClient() : supabaseAdmin;
+    
     // 1. Check if proposal exists
-    const { data: proposal, error: proposalError } = await supabaseAdmin
+    const { data: proposal, error: proposalError } = await client
       .from('business_proposal')
       .select('id, title, status')
       .eq('id', proposalId)
@@ -364,7 +392,7 @@ export async function validateCascadeDeletion(proposalId: string): Promise<Valid
     }
 
     // 3. Count related items that will be deleted
-    const { count: itemCount } = await supabaseAdmin
+    const { count: itemCount } = await client
       .from('business_proposal_item')
       .select('*', { count: 'exact', head: true })
       .eq('proposal_id', proposalId);

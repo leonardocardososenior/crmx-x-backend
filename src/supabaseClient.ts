@@ -33,6 +33,31 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
   }
 });
 
+/**
+ * Creates a tenant-specific Supabase client that connects directly to the tenant schema
+ * Assumes the schema exists and is properly configured
+ */
+export function createTenantClient(tenantId: string) {
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    throw new Error('Missing Supabase configuration for tenant client');
+  }
+  
+  const schemaName = `crmx_database_${tenantId}`;
+  
+  console.log(`🔍 [CLIENT DEBUG] Creating tenant client for schema: ${schemaName}`);
+  
+  // Try using the db.schema configuration
+  return createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    },
+    db: {
+      schema: schemaName
+    }
+  });
+}
+
 // Database types for TypeScript support
 export interface Database {
   public: {

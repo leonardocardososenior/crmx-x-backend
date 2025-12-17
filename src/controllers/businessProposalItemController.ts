@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { supabaseAdmin } from '../supabaseClient';
+import { TenantRequest } from '../types/tenant';
+import { getTenantAdminClient } from '../utils/tenantClientHelper';
 import { 
   CreateBusinessProposalItemSchema, 
   UpdateBusinessProposalItemSchema, 
@@ -22,7 +24,7 @@ import {
   handleFilterError,
   buildPaginatedQuery,
   createPaginatedResponse,
-  checkEntityExists
+  checkEntityExistsInTenant
 } from '../utils/controllerHelpers';
 import { getLanguageFromRequest, getSuccessMessage } from '../utils/translations';
 import { logger } from '../utils/logger';
@@ -31,7 +33,7 @@ import { logger } from '../utils/logger';
  * Create a new business proposal item
  * POST /api/business-proposal-items
  */
-export async function createBusinessProposalItem(req: Request, res: Response): Promise<void> {
+export async function createBusinessProposalItem(req: TenantRequest, res: Response): Promise<void> {
   const requestId = (req as any).requestId;
   const startTime = Date.now();
   
@@ -53,7 +55,7 @@ export async function createBusinessProposalItem(req: Request, res: Response): P
     const itemData: CreateBusinessProposalItemInput = validationResult.data;
 
     // Check if business proposal exists
-    const proposalExists = await checkEntityExists('business_proposal', itemData.proposal.id);
+    const proposalExists = await checkEntityExistsInTenant(req, 'business_proposal', itemData.proposal.id);
     if (!proposalExists) {
       logger.proposalItemError('CREATE_PROPOSAL_NOT_FOUND', new Error('Proposal not found'), undefined, itemData.proposal.id);
       handleNotFound('Proposal', res, req);
@@ -61,7 +63,7 @@ export async function createBusinessProposalItem(req: Request, res: Response): P
     }
 
     // Check if item exists
-    const itemExists = await checkEntityExists('item', itemData.item.id);
+    const itemExists = await checkEntityExistsInTenant(req, 'item', itemData.item.id);
     if (!itemExists) {
       logger.proposalItemError('CREATE_ITEM_NOT_FOUND', new Error('Item not found'), undefined, itemData.proposal.id);
       handleNotFound('Item', res, req);
@@ -129,8 +131,12 @@ export async function createBusinessProposalItem(req: Request, res: Response): P
       total: total
     };
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Insert business proposal item into database
-    const { data: createdItem, error } = await supabaseAdmin
+    const { data: createdItem, error } = await tenantClient
+      .getClient()
       .from('business_proposal_item')
       .insert(itemToInsert)
       .select()
@@ -171,7 +177,7 @@ export async function createBusinessProposalItem(req: Request, res: Response): P
  * Get business proposal items with filtering and pagination
  * GET /api/business-proposal-items
  */
-export async function getBusinessProposalItems(req: Request, res: Response): Promise<void> {
+export async function getBusinessProposalItems(req: TenantRequest, res: Response): Promise<void> {
   const requestId = (req as any).requestId;
   const startTime = Date.now();
   
@@ -196,8 +202,12 @@ export async function getBusinessProposalItems(req: Request, res: Response): Pro
     const page = queryParams.page || 1;
     const size = queryParams.size || 10;
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Build base query
-    let query = supabaseAdmin
+    let query = tenantClient
+      .getClient()
       .from('business_proposal_item')
       .select('*', { count: 'exact' });
 
@@ -303,7 +313,7 @@ export async function getBusinessProposalItems(req: Request, res: Response): Pro
  * Get a single business proposal item by ID
  * GET /api/business-proposal-items/:id
  */
-export async function getBusinessProposalItemById(req: Request, res: Response): Promise<void> {
+export async function getBusinessProposalItemById(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate route parameters
     const paramValidation = BusinessProposalItemIdParamSchema.safeParse(req.params);
@@ -315,8 +325,12 @@ export async function getBusinessProposalItemById(req: Request, res: Response): 
 
     const { id } = paramValidation.data;
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Fetch business proposal item from database
-    const { data: item, error } = await supabaseAdmin
+    const { data: item, error } = await tenantClient
+      .getClient()
       .from('business_proposal_item')
       .select('*')
       .eq('id', id)
@@ -341,7 +355,7 @@ export async function getBusinessProposalItemById(req: Request, res: Response): 
  * Update an existing business proposal item with recalculation
  * PUT /api/business-proposal-items/:id
  */
-export async function updateBusinessProposalItem(req: Request, res: Response): Promise<void> {
+export async function updateBusinessProposalItem(req: TenantRequest, res: Response): Promise<void> {
   const requestId = (req as any).requestId;
   const startTime = Date.now();
   
@@ -368,8 +382,12 @@ export async function updateBusinessProposalItem(req: Request, res: Response): P
 
     const updateData: UpdateBusinessProposalItemInput = validationResult.data;
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Check if business proposal item exists first
-    const { data: existingItem, error: existsError } = await supabaseAdmin
+    const { data: existingItem, error: existsError } = await tenantClient
+      .getClient()
       .from('business_proposal_item')
       .select('*')
       .eq('id', id)
@@ -385,7 +403,7 @@ export async function updateBusinessProposalItem(req: Request, res: Response): P
 
     // Check if item exists (if being updated)
     if (updateData.item) {
-      const itemExists = await checkEntityExists('item', updateData.item.id);
+      const itemExists = await checkEntityExistsInTenant(req, 'item', updateData.item.id);
       if (!itemExists) {
         handleNotFound('Item', res, req);
         return;
@@ -424,7 +442,8 @@ export async function updateBusinessProposalItem(req: Request, res: Response): P
     dbUpdateData.total = newTotal;
 
     // Update business proposal item in database
-    const { data: updatedItem, error } = await supabaseAdmin
+    const { data: updatedItem, error } = await tenantClient
+      .getClient()
       .from('business_proposal_item')
       .update(dbUpdateData)
       .eq('id', id)
@@ -466,7 +485,7 @@ export async function updateBusinessProposalItem(req: Request, res: Response): P
  * Delete a business proposal item
  * DELETE /api/business-proposal-items/:id
  */
-export async function deleteBusinessProposalItem(req: Request, res: Response): Promise<void> {
+export async function deleteBusinessProposalItem(req: TenantRequest, res: Response): Promise<void> {
   const requestId = (req as any).requestId;
   const startTime = Date.now();
   
@@ -483,8 +502,12 @@ export async function deleteBusinessProposalItem(req: Request, res: Response): P
 
     logger.proposalItemOperation('DELETE_START', id, undefined, { requestId });
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Check if business proposal item exists first and get proposal_id for logging
-    const { data: existingItem, error: checkError } = await supabaseAdmin
+    const { data: existingItem, error: checkError } = await tenantClient
+      .getClient()
       .from('business_proposal_item')
       .select('id, proposal_id')
       .eq('id', id)
@@ -499,7 +522,8 @@ export async function deleteBusinessProposalItem(req: Request, res: Response): P
     const proposalId = (existingItem as any).proposal_id;
 
     // Delete business proposal item from database
-    const { error } = await supabaseAdmin
+    const { error } = await tenantClient
+      .getClient()
       .from('business_proposal_item')
       .delete()
       .eq('id', id);

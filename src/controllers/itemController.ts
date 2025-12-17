@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { supabaseAdmin } from '../supabaseClient';
+import { TenantRequest } from '../types/tenant';
+import { getTenantAdminClient } from '../utils/tenantClientHelper';
 import { 
   CreateItemSchema, 
   UpdateItemSchema, 
@@ -20,7 +22,7 @@ import {
   handleFilterError,
   buildPaginatedQuery,
   createPaginatedResponse,
-  checkEntityExists
+  checkEntityExistsInTenant
 } from '../utils/controllerHelpers';
 import { getLanguageFromRequest, getSuccessMessage } from '../utils/translations';
 
@@ -28,7 +30,7 @@ import { getLanguageFromRequest, getSuccessMessage } from '../utils/translations
  * Create a new item
  * POST /api/items
  */
-export async function createItem(req: Request, res: Response): Promise<void> {
+export async function createItem(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate request body using Zod schema
     const validationResult = CreateItemSchema.safeParse(req.body);
@@ -42,8 +44,12 @@ export async function createItem(req: Request, res: Response): Promise<void> {
     // Convert API data (camelCase) to database format (snake_case)
     const dbItemData = itemApiToDb(itemData);
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Insert item into database
-    const { data: createdItem, error } = await supabaseAdmin
+    const { data: createdItem, error } = await tenantClient
+      .getClient()
       .from('item')
       .insert(dbItemData)
       .select()
@@ -67,7 +73,7 @@ export async function createItem(req: Request, res: Response): Promise<void> {
  * Get items with filtering and pagination
  * GET /api/items
  */
-export async function getItems(req: Request, res: Response): Promise<void> {
+export async function getItems(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate query parameters using Zod schema
     const validationResult = ItemQueryParamsSchema.safeParse(req.query);
@@ -82,8 +88,11 @@ export async function getItems(req: Request, res: Response): Promise<void> {
     const page = queryParams.page || 1;
     const size = queryParams.size || 10;
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Build base query
-    let query = supabaseAdmin.from('item').select('*', { count: 'exact' });
+    let query = tenantClient.getClient().from('item').select('*', { count: 'exact' });
 
     // Apply search filter if provided
     if (queryParams.search) {
@@ -186,7 +195,7 @@ export async function getItems(req: Request, res: Response): Promise<void> {
  * Get a single item by ID
  * GET /api/items/:id
  */
-export async function getItemById(req: Request, res: Response): Promise<void> {
+export async function getItemById(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate route parameters
     const paramValidation = ItemIdParamSchema.safeParse(req.params);
@@ -197,8 +206,12 @@ export async function getItemById(req: Request, res: Response): Promise<void> {
 
     const { id } = paramValidation.data!;
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Fetch item from database
-    const { data: item, error } = await supabaseAdmin
+    const { data: item, error } = await tenantClient
+      .getClient()
       .from('item')
       .select('*')
       .eq('id', id)
@@ -222,7 +235,7 @@ export async function getItemById(req: Request, res: Response): Promise<void> {
  * Update an existing item
  * PUT /api/items/:id
  */
-export async function updateItem(req: Request, res: Response): Promise<void> {
+export async function updateItem(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate route parameters
     const paramValidation = ItemIdParamSchema.safeParse(req.params);
@@ -243,7 +256,7 @@ export async function updateItem(req: Request, res: Response): Promise<void> {
     const updateData = validationResult.data!;
 
     // Check if item exists first
-    const exists = await checkEntityExists('item', id);
+    const exists = await checkEntityExistsInTenant(req, 'item', id);
     if (!exists) {
       handleNotFound('Item', res, req);
       return;
@@ -252,8 +265,12 @@ export async function updateItem(req: Request, res: Response): Promise<void> {
     // Convert API data (camelCase) to database format (snake_case)
     const dbUpdateData = itemApiToDb(updateData);
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Update item in database
-    const { data: updatedItem, error } = await supabaseAdmin
+    const { data: updatedItem, error } = await tenantClient
+      .getClient()
       .from('item')
       .update(dbUpdateData)
       .eq('id', id)
@@ -278,7 +295,7 @@ export async function updateItem(req: Request, res: Response): Promise<void> {
  * Delete an item
  * DELETE /api/items/:id
  */
-export async function deleteItem(req: Request, res: Response): Promise<void> {
+export async function deleteItem(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate route parameters
     const paramValidation = ItemIdParamSchema.safeParse(req.params);
@@ -290,15 +307,19 @@ export async function deleteItem(req: Request, res: Response): Promise<void> {
     const { id } = paramValidation.data!;
 
     // Check if item exists first
-    const exists = await checkEntityExists('item', id);
+    const exists = await checkEntityExistsInTenant(req, 'item', id);
     if (!exists) {
       handleNotFound('Item', res, req);
       return;
     }
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Delete item from database
     // Note: Cascading operations for related business will be handled by database constraints
-    const { error } = await supabaseAdmin
+    const { error } = await tenantClient
+      .getClient()
       .from('item')
       .delete()
       .eq('id', id);

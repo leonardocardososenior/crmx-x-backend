@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { supabaseAdmin } from '../supabaseClient';
+import { TenantRequest } from '../types/tenant';
+import { executeInTenantContext, getTenantClient } from '../utils/simpleTenantDatabase';
 import { 
   CreateAccountSchema, 
   UpdateAccountSchema, 
@@ -20,7 +22,7 @@ import {
   handleFilterError,
   buildPaginatedQuery,
   createPaginatedResponse,
-  checkEntityExists
+  checkEntityExistsInTenant
 } from '../utils/controllerHelpers';
 import { getLanguageFromRequest, getSuccessMessage } from '../utils/translations';
 
@@ -28,7 +30,7 @@ import { getLanguageFromRequest, getSuccessMessage } from '../utils/translations
  * Create a new account
  * POST /api/accounts
  */
-export async function createAccount(req: Request, res: Response): Promise<void> {
+export async function createAccount(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate request body using Zod schema
     const validationResult = CreateAccountSchema.safeParse(req.body);
@@ -49,12 +51,19 @@ export async function createAccount(req: Request, res: Response): Promise<void> 
       last_interaction: new Date().toISOString()
     };
 
-    // Insert account into database
-    const { data: createdAccount, error } = await supabaseAdmin
-      .from('account')
-      .insert(accountToInsert)
-      .select()
-      .single();
+    // Execute in tenant context - assumes schema exists
+    const { data: createdAccount, error } = await executeInTenantContext(
+      req.tenant!.tenantId,
+      async (client) => {
+        return await client
+          .from('account')
+          .insert(accountToInsert)
+          .select()
+          .single();
+      }
+    );
+
+
 
     if (error) {
       handleDatabaseError('INSERT', 'account', error, res, req);
@@ -74,7 +83,7 @@ export async function createAccount(req: Request, res: Response): Promise<void> 
  * Get accounts with filtering and pagination
  * GET /api/accounts
  */
-export async function getAccounts(req: Request, res: Response): Promise<void> {
+export async function getAccounts(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate query parameters using Zod schema
     const validationResult = QueryParamsSchema.safeParse(req.query);
@@ -89,75 +98,35 @@ export async function getAccounts(req: Request, res: Response): Promise<void> {
     const page = queryParams.page || 1;
     const size = queryParams.size || 10;
 
-    // Build base query
-    let query = supabaseAdmin.from('account').select('*', { count: 'exact' });
+    // Execute in tenant context using direct client configuration
+    const result = await executeInTenantContext(
+      req.tenant!.tenantId,
+      async (client) => {
+        console.log(`🔍 [CONTROLLER DEBUG] Using tenant client for schema: crmx_database_${req.tenant!.tenantId}`);
+        
+        // Build query with pagination
+        const query = client
+          .from('account')
+          .select('*', { count: 'exact' });
+        
+        // Apply pagination and ordering
+        const paginatedQuery = buildPaginatedQuery(query, page, size)
+          .order('created_at', { ascending: false });
 
-    try {
-      // Apply dynamic filter if provided
-      if (queryParams.filter) {
-        // Safely decode URL-encoded filter string
-        let decodedFilter = queryParams.filter;
-        
-        // Try multiple decoding attempts for different encoding levels
-        try {
-          // First attempt - single decode
-          const firstDecode = decodeURIComponent(queryParams.filter);
-          
-          // Check if it still contains encoded characters
-          if (firstDecode.includes('%')) {
-            try {
-              // Second attempt - double decode
-              decodedFilter = decodeURIComponent(firstDecode);
-            } catch {
-              decodedFilter = firstDecode;
-            }
-          } else {
-            decodedFilter = firstDecode;
-          }
-        } catch (decodeError) {
-          // If all decoding fails, use the original string
-          logger.warn('CONTROLLER', 'Failed to decode filter, using original', { 
-            filter: queryParams.filter,
-            error: (decodeError as Error).message
-          });
-        }
-        
-        logger.debug('CONTROLLER', 'Processing filter', { 
-          original: queryParams.filter, 
-          decoded: decodedFilter 
-        });
-        
-        const parsedFilter = parseFilter(decodedFilter, 'account');
-        logger.filterParsing(decodedFilter, true);
-        query = applyFiltersToQuery(query, parsedFilter, 'account');
+        // Execute query
+        return await paginatedQuery;
       }
-    } catch (filterError) {
-      let decodedFilter = '';
-      if (queryParams.filter) {
-        try {
-          decodedFilter = decodeURIComponent(queryParams.filter);
-        } catch {
-          decodedFilter = queryParams.filter;
-        }
-      }
-      logger.filterParsing(decodedFilter, false, filterError as Error);
-      handleFilterError(filterError, res, req);
-      return;
-    }
+    );
 
-    // Apply pagination
-    query = buildPaginatedQuery(query, page, size);
-
-    // Order by created_at descending
-    query = query.order('created_at', { ascending: false });
-
-    // Execute query
-    const { data: accounts, error, count } = await query;
+    const { data: accounts, error, count } = result;
 
     if (error) {
+      console.error(`🔍 [CONTROLLER DEBUG] Query Error:`, error);
       handleDatabaseError('SELECT', 'account', error, res, req);
       return;
     }
+
+    console.log(`🔍 [CONTROLLER DEBUG] Found ${accounts?.length || 0} accounts, total: ${count || 0}`);
 
     // Convert database results (snake_case) to API format (camelCase)
     const apiAccounts = (accounts as AccountDB[]).map(accountDbToApi);
@@ -175,7 +144,7 @@ export async function getAccounts(req: Request, res: Response): Promise<void> {
  * Get a single account by ID
  * GET /api/accounts/:id
  */
-export async function getAccountById(req: Request, res: Response): Promise<void> {
+export async function getAccountById(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate route parameters
     const paramValidation = AccountIdParamSchema.safeParse(req.params);
@@ -186,12 +155,17 @@ export async function getAccountById(req: Request, res: Response): Promise<void>
 
     const { id } = paramValidation.data!;
 
-    // Fetch account from database
-    const { data: account, error } = await supabaseAdmin
-      .from('account')
-      .select('*')
-      .eq('id', id)
-      .single();
+    // Execute in tenant context - assumes schema exists
+    const { data: account, error } = await executeInTenantContext(
+      req.tenant!.tenantId,
+      async (client) => {
+        return await client
+          .from('account')
+          .select('*')
+          .eq('id', id)
+          .single();
+      }
+    );
 
     if (error || !account) {
       handleNotFound('Account', res, req);
@@ -211,7 +185,7 @@ export async function getAccountById(req: Request, res: Response): Promise<void>
  * Update an existing account
  * PUT /api/accounts/:id
  */
-export async function updateAccount(req: Request, res: Response): Promise<void> {
+export async function updateAccount(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate route parameters
     const paramValidation = AccountIdParamSchema.safeParse(req.params);
@@ -232,7 +206,7 @@ export async function updateAccount(req: Request, res: Response): Promise<void> 
     const updateData = validationResult.data!;
 
     // Check if account exists first
-    const exists = await checkEntityExists('account', id);
+    const exists = await checkEntityExistsInTenant(req, 'account', id);
     if (!exists) {
       handleNotFound('Account', res, req);
       return;
@@ -245,13 +219,18 @@ export async function updateAccount(req: Request, res: Response): Promise<void> 
       last_interaction: new Date().toISOString()
     };
 
-    // Update account in database
-    const { data: updatedAccount, error } = await supabaseAdmin
-      .from('account')
-      .update(accountUpdateData)
-      .eq('id', id)
-      .select()
-      .single();
+    // Execute in tenant context - assumes schema exists
+    const { data: updatedAccount, error } = await executeInTenantContext(
+      req.tenant!.tenantId,
+      async (client) => {
+        return await client
+          .from('account')
+          .update(accountUpdateData)
+          .eq('id', id)
+          .select()
+          .single();
+      }
+    );
 
     if (error) {
       handleDatabaseError('UPDATE', 'account', error, res, req);
@@ -271,7 +250,7 @@ export async function updateAccount(req: Request, res: Response): Promise<void> 
  * Delete an account
  * DELETE /api/accounts/:id
  */
-export async function deleteAccount(req: Request, res: Response): Promise<void> {
+export async function deleteAccount(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate route parameters
     const paramValidation = AccountIdParamSchema.safeParse(req.params);
@@ -283,18 +262,22 @@ export async function deleteAccount(req: Request, res: Response): Promise<void> 
     const { id } = paramValidation.data!;
 
     // Check if account exists first
-    const exists = await checkEntityExists('account', id);
+    const exists = await checkEntityExistsInTenant(req, 'account', id);
     if (!exists) {
       handleNotFound('Account', res, req);
       return;
     }
 
-    // Delete account from database
-    // Note: Cascading operations for related business will be handled by database constraints
-    const { error } = await supabaseAdmin
-      .from('account')
-      .delete()
-      .eq('id', id);
+    // Execute in tenant context - assumes schema exists
+    const { error } = await executeInTenantContext(
+      req.tenant!.tenantId,
+      async (client) => {
+        return await client
+          .from('account')
+          .delete()
+          .eq('id', id);
+      }
+    );
 
     if (error) {
       handleDatabaseError('DELETE', 'account', error, res, req);

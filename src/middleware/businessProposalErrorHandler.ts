@@ -34,8 +34,7 @@ export function handleCalculationError(
     
     res.status(400).json({
       message: 'Erro no cálculo dos valores da proposta. Verifique os dados informados.',
-      status: 400,
-      requestId
+      status: 400
     } as ErrorResponse);
     return;
   }
@@ -67,8 +66,7 @@ export function handleStatusTransitionError(
     
     res.status(400).json({
       message: statusMessages[language] || statusMessages['pt-BR'],
-      status: 400,
-      requestId
+      status: 400
     } as ErrorResponse);
     return;
   }
@@ -99,8 +97,7 @@ export function handleItemValidationError(
     
     res.status(400).json({
       message: itemMessages[language] || itemMessages['pt-BR'],
-      status: 400,
-      requestId
+      status: 400
     } as ErrorResponse);
     return;
   }
@@ -131,8 +128,7 @@ export function handleCascadeDeletionError(
     
     res.status(500).json({
       message: cascadeMessages[language] || cascadeMessages['pt-BR'],
-      status: 500,
-      requestId
+      status: 500
     } as ErrorResponse);
     return;
   }
@@ -163,8 +159,7 @@ export function handlePermissionError(
     
     res.status(403).json({
       message: permissionMessages[language] || permissionMessages['pt-BR'],
-      status: 403,
-      requestId
+      status: 403
     } as ErrorResponse);
     return;
   }

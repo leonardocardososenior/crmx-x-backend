@@ -1,4 +1,5 @@
 import { DashboardPeriod, DashboardPeriods } from '../types/enums';
+import { logger } from './logger';
 
 export interface DateRange {
   startDate: string;
@@ -166,7 +167,7 @@ export function testQuarterLogic() {
     } as any;
 
     const result = getDateRangeForPeriod(DashboardPeriods.LAST_QUARTER);
-    console.log(`Current: ${testDate.toISOString().slice(0, 10)} -> Last Quarter: ${result.startDate.slice(0, 10)} to ${result.endDate.slice(0, 10)}`);
+    logger.debug('DATE_FILTER', `Current: ${testDate.toISOString().slice(0, 10)} -> Last Quarter: ${result.startDate.slice(0, 10)} to ${result.endDate.slice(0, 10)}`);
     
     // Restore original Date
     global.Date = originalDate;

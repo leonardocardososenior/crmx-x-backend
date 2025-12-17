@@ -7,6 +7,7 @@ import {
   createValidationMessage,
   getRelationshipErrorMessage
 } from '../utils/translations';
+import { logger } from '../utils/logger';
 
 // Generate unique request ID for tracking
 export function generateRequestId(): string {
@@ -26,7 +27,7 @@ export function requestIdMiddleware(req: Request, res: Response, next: NextFunct
   res.setHeader('X-Request-ID', requestId);
   
   // Log request start
-  console.log(`[${requestId}] ${req.method} ${req.url} - Request started`);
+  logger.debug('REQUEST', `${req.method} ${req.url} - Request started`, { requestId });
   
   // Override res.end to log response completion
   const originalEnd = res.end.bind(res);
@@ -35,11 +36,11 @@ export function requestIdMiddleware(req: Request, res: Response, next: NextFunct
     const statusCode = res.statusCode;
     
     // Log response completion with performance metrics
-    console.log(`[${requestId}] ${req.method} ${req.url} - ${statusCode} (${duration}ms)`);
+    logger.info('RESPONSE', `${req.method} ${req.url} - ${statusCode} (${duration}ms)`, { requestId, statusCode, duration });
     
     // Log slow requests as warnings
     if (duration > 3000) {
-      console.warn(`[${requestId}] SLOW REQUEST: ${req.method} ${req.url} took ${duration}ms`);
+      logger.warn('PERFORMANCE', `SLOW REQUEST: ${req.method} ${req.url} took ${duration}ms`, { requestId, duration });
     }
     
     // Call original end method with proper arguments
@@ -61,14 +62,12 @@ export function errorHandler(
   const t = getTranslations(language);
   
   // Enhanced logging with request context
-  console.error(`[${requestId}] Error occurred:`, {
-    error: error.message || error,
-    stack: error.stack,
+  logger.error('ERROR_HANDLER', `Error occurred: ${error.message || error}`, error, {
+    requestId,
     method: req.method,
     url: req.url,
     userAgent: req.get('User-Agent'),
-    ip: req.ip,
-    timestamp: new Date().toISOString()
+    ip: req.ip
   });
 
   // Zod validation errors
@@ -101,12 +100,11 @@ export function errorHandler(
       message = createValidationMessage(field, errorType, language, params);
     }
     
-    console.warn(`[${requestId}] Validation error: ${message}`);
+    logger.warn('VALIDATION', `Validation error: ${message}`, { requestId });
     
     const errorResponse: ErrorResponse = {
       message,
-      status: 400,
-      requestId
+      status: 400
     };
     res.status(400).json(errorResponse);
     return;
@@ -121,49 +119,48 @@ export function errorHandler(
       case '23503': // Foreign key violation
         statusCode = 400;
         message = getRelationshipErrorMessage(error.details || error.detail || '', language);
-        console.warn(`[${requestId}] Foreign key violation: ${error.details || error.detail}`);
+        logger.warn('DATABASE', `Foreign key violation: ${error.details || error.detail}`, { requestId, code: error.code });
         break;
       case '23505': // Unique constraint violation
         statusCode = 409;
         message = t.errors.constraints.duplicate_record;
-        console.warn(`[${requestId}] Unique constraint violation: ${error.details || error.detail}`);
+        logger.warn('DATABASE', `Unique constraint violation: ${error.details || error.detail}`, { requestId, code: error.code });
         break;
       case '23514': // Check constraint violation
         statusCode = 400;
         message = t.errors.constraints.data_constraint_violation;
-        console.warn(`[${requestId}] Check constraint violation: ${error.details || error.detail}`);
+        logger.warn('DATABASE', `Check constraint violation: ${error.details || error.detail}`, { requestId, code: error.code });
         break;
       case '42P01': // Undefined table
         statusCode = 500;
         message = t.errors.server.internal_error;
-        console.error(`[${requestId}] Database table not found: ${error.message}`);
+        logger.error('DATABASE', `Database table not found: ${error.message}`, error, { requestId, code: error.code });
         break;
       case '42703': // Undefined column
         statusCode = 500;
         message = t.errors.server.internal_error;
-        console.error(`[${requestId}] Database column not found: ${error.message}`);
+        logger.error('DATABASE', `Database column not found: ${error.message}`, error, { requestId, code: error.code });
         break;
       case '08006': // Connection failure
         statusCode = 503;
         message = t.errors.server.service_unavailable;
-        console.error(`[${requestId}] Database connection failure: ${error.message}`);
+        logger.error('DATABASE', `Database connection failure: ${error.message}`, error, { requestId, code: error.code });
         break;
       case 'PGRST116': // PostgREST row not found
         statusCode = 404;
         message = t.errors.not_found.route;
-        console.warn(`[${requestId}] Resource not found: ${error.message}`);
+        logger.warn('DATABASE', `Resource not found: ${error.message}`, { requestId, code: error.code });
         break;
       default:
         statusCode = 500;
         message = t.errors.server.internal_error;
-        console.error(`[${requestId}] Unhandled database error (${error.code}): ${error.message}`);
+        logger.error('DATABASE', `Unhandled database error (${error.code}): ${error.message}`, error, { requestId, code: error.code });
         break;
     }
 
     const errorResponse: ErrorResponse = {
       message,
-      status: statusCode,
-      requestId
+      status: statusCode
     };
     res.status(statusCode).json(errorResponse);
     return;
@@ -171,12 +168,11 @@ export function errorHandler(
 
   // Authentication API errors (from fetch failures)
   if (error.name === 'FetchError' || error.code === 'ECONNREFUSED') {
-    console.error(`[${requestId}] External service connection error: ${error.message}`);
+    logger.error('EXTERNAL_SERVICE', `External service connection error: ${error.message}`, error, { requestId });
     
     const errorResponse: ErrorResponse = {
       message: t.errors.server.service_unavailable,
-      status: 502,
-      requestId
+      status: 502
     };
     res.status(502).json(errorResponse);
     return;
@@ -184,12 +180,11 @@ export function errorHandler(
 
   // HTTP errors (from external API calls)
   if (error.status && error.statusText) {
-    console.error(`[${requestId}] External API error: ${error.status} ${error.statusText}`);
+    logger.error('EXTERNAL_API', `External API error: ${error.status} ${error.statusText}`, error, { requestId, status: error.status });
     
     const errorResponse: ErrorResponse = {
       message: t.errors.server.external_service_error,
-      status: 502,
-      requestId
+      status: 502
     };
     res.status(502).json(errorResponse);
     return;
@@ -197,12 +192,11 @@ export function errorHandler(
 
   // Timeout errors
   if (error.code === 'ETIMEDOUT' || error.name === 'TimeoutError') {
-    console.error(`[${requestId}] Request timeout: ${error.message}`);
+    logger.error('TIMEOUT', `Request timeout: ${error.message}`, error, { requestId });
     
     const errorResponse: ErrorResponse = {
       message: t.errors.server.service_unavailable,
-      status: 504,
-      requestId
+      status: 504
     };
     res.status(504).json(errorResponse);
     return;
@@ -210,12 +204,11 @@ export function errorHandler(
 
   // Rate limiting errors
   if (error.status === 429) {
-    console.warn(`[${requestId}] Rate limit exceeded: ${error.message}`);
+    logger.warn('RATE_LIMIT', `Rate limit exceeded: ${error.message}`, { requestId });
     
     const errorResponse: ErrorResponse = {
       message: 'Too many requests. Please try again later.',
-      status: 429,
-      requestId
+      status: 429
     };
     res.status(429).json(errorResponse);
     return;
@@ -223,12 +216,11 @@ export function errorHandler(
 
   // Generic server errors
   const message = error instanceof Error ? error.message : t.errors.server.internal_error;
-  console.error(`[${requestId}] Unhandled error: ${message}`);
+  logger.error('UNHANDLED', `Unhandled error: ${message}`, error, { requestId });
   
   const errorResponse: ErrorResponse = {
     message: t.errors.server.internal_error,
-    status: 500,
-    requestId
+    status: 500
   };
   
   res.status(500).json(errorResponse);

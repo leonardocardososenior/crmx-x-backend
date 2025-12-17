@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { supabaseAdmin } from '../supabaseClient';
+import { TenantRequest } from '../types/tenant';
+import { getTenantAdminClient } from './tenantClientHelper';
 import { ErrorResponse, PaginatedResponse } from '../types';
 import { logger } from './logger';
 import { parseFilter, applyFiltersToQuery } from './filterParser';
@@ -62,8 +64,7 @@ export function handleValidationError(validationResult: any, res: Response, req?
     
     res.status(400).json({
       message,
-      status: 400,
-      requestId
+      status: 400
     } as ErrorResponse);
     return true;
   }
@@ -89,8 +90,7 @@ export function handleNotFound(entityName: string, res: Response, req?: Request)
   
   res.status(404).json({
     message,
-    status: 404,
-    requestId
+    status: 404
   } as ErrorResponse);
 }
 
@@ -171,8 +171,7 @@ export function handleDatabaseError(
   
   res.status(statusCode).json({
     message,
-    status: statusCode,
-    requestId
+    status: statusCode
   } as ErrorResponse);
 }
 
@@ -206,8 +205,7 @@ export function handleInternalError(
   
   res.status(500).json({
     message,
-    status: 500,
-    requestId
+    status: 500
   } as ErrorResponse);
 }
 
@@ -233,8 +231,7 @@ export function handleFilterError(filterError: any, res: Response, req?: Request
   
   res.status(400).json({
     message,
-    status: 400,
-    requestId
+    status: 400
   } as ErrorResponse);
 }
 
@@ -277,13 +274,34 @@ export function createPaginatedResponse<T>(
 }
 
 /**
- * Check if entity exists in database
+ * Check if entity exists in database (legacy version - use checkEntityExistsInTenant for new code)
+ * @deprecated Use checkEntityExistsInTenant instead for tenant-aware operations
  */
 export async function checkEntityExists(
   tableName: string, 
   id: string
 ): Promise<boolean> {
   const { data, error } = await supabaseAdmin
+    .from(tableName)
+    .select('id')
+    .eq('id', id)
+    .single();
+    
+  return !error && !!data;
+}
+
+/**
+ * Check if entity exists in database within tenant context
+ */
+export async function checkEntityExistsInTenant(
+  req: TenantRequest,
+  tableName: string, 
+  id: string
+): Promise<boolean> {
+  const tenantClient = getTenantAdminClient(req);
+  
+  const { data, error } = await tenantClient
+    .getClient()
     .from(tableName)
     .select('id')
     .eq('id', id)

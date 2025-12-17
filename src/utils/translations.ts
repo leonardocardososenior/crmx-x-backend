@@ -13,6 +13,22 @@ export interface Translations {
       invalid_number: string;
       invalid_date: string;
     };
+    tenant: {
+      header_missing: string;
+      header_empty: string;
+      format_invalid: string;
+      id_malformed: string;
+      schema_creation_failed: string;
+      schema_migration_failed: string;
+      schema_validation_failed: string;
+      schema_access_denied: string;
+      database_unavailable: string;
+      database_connection_timeout: string;
+      database_connection_failed: string;
+      context_setup_failed: string;
+      context_cleanup_failed: string;
+      search_path_update_failed: string;
+    };
     relationships: {
       owner_not_found: string;
       account_not_found: string;
@@ -146,6 +162,22 @@ const translations: Record<Language, Translations> = {
         invalid_number: 'deve ser um número válido',
         invalid_date: 'deve ser uma data válida',
       },
+      tenant: {
+        header_missing: 'Cabeçalho do tenant é obrigatório',
+        header_empty: 'Cabeçalho do tenant não pode estar vazio',
+        format_invalid: 'Formato do tenant inválido',
+        id_malformed: 'Formato do tenant inválido',
+        schema_creation_failed: 'Falha ao criar schema do tenant',
+        schema_migration_failed: 'Falha ao executar migração do schema',
+        schema_validation_failed: 'Falha na validação do schema',
+        schema_access_denied: 'Acesso negado ao schema do tenant',
+        database_unavailable: 'Serviço de banco de dados indisponível',
+        database_connection_timeout: 'Timeout na conexão com o banco de dados',
+        database_connection_failed: 'Falha ao conectar com o banco de dados',
+        context_setup_failed: 'Falha ao configurar contexto do tenant',
+        context_cleanup_failed: 'Falha ao limpar recursos do tenant',
+        search_path_update_failed: 'Falha ao atualizar caminho de busca do banco',
+      },
       relationships: {
         owner_not_found: 'O responsável informado não existe',
         account_not_found: 'A conta informada não existe',
@@ -277,6 +309,22 @@ const translations: Record<Language, Translations> = {
         invalid_number: 'must be a valid number',
         invalid_date: 'must be a valid date',
       },
+      tenant: {
+        header_missing: 'Tenant header is required',
+        header_empty: 'Tenant header cannot be empty',
+        format_invalid: 'Invalid tenant format',
+        id_malformed: 'Invalid tenant format',
+        schema_creation_failed: 'Failed to create tenant schema',
+        schema_migration_failed: 'Failed to execute schema migration',
+        schema_validation_failed: 'Schema validation failed',
+        schema_access_denied: 'Access denied to tenant schema',
+        database_unavailable: 'Database service is currently unavailable',
+        database_connection_timeout: 'Database connection timeout',
+        database_connection_failed: 'Failed to connect to database',
+        context_setup_failed: 'Failed to setup tenant context',
+        context_cleanup_failed: 'Failed to cleanup tenant resources',
+        search_path_update_failed: 'Failed to update database search path',
+      },
       relationships: {
         owner_not_found: 'The specified owner does not exist',
         account_not_found: 'The specified account does not exist',
@@ -407,6 +455,22 @@ const translations: Record<Language, Translations> = {
         max_length: 'debe tener como máximo {max} caracteres',
         invalid_number: 'debe ser un número válido',
         invalid_date: 'debe ser una fecha válida',
+      },
+      tenant: {
+        header_missing: 'Encabezado del tenant es obligatorio',
+        header_empty: 'Encabezado del tenant no puede estar vacío',
+        format_invalid: 'Formato del tenant inválido',
+        id_malformed: 'Formato del tenant inválido',
+        schema_creation_failed: 'Error al crear esquema del tenant',
+        schema_migration_failed: 'Error al ejecutar migración del esquema',
+        schema_validation_failed: 'Error en la validación del esquema',
+        schema_access_denied: 'Acceso denegado al esquema del tenant',
+        database_unavailable: 'Servicio de base de datos no disponible',
+        database_connection_timeout: 'Timeout en la conexión con la base de datos',
+        database_connection_failed: 'Error al conectar con la base de datos',
+        context_setup_failed: 'Error al configurar contexto del tenant',
+        context_cleanup_failed: 'Error al limpiar recursos del tenant',
+        search_path_update_failed: 'Error al actualizar ruta de búsqueda de la base de datos',
       },
       relationships: {
         owner_not_found: 'El responsable especificado no existe',
@@ -817,4 +881,38 @@ export function createLocalizedMonthlyResponse(
   });
   
   return response;
+}
+
+// Função para obter mensagem de erro de tenant traduzida
+export function getTenantErrorMessage(
+  errorCode: string,
+  language: Language = 'pt-BR'
+): string {
+  const t = getTranslations(language);
+  
+  // Mapear códigos de erro para chaves de tradução
+  const errorKeyMap: Record<string, keyof typeof t.errors.tenant> = {
+    'TENANT_HEADER_MISSING': 'header_missing',
+    'TENANT_HEADER_EMPTY': 'header_empty',
+    'TENANT_FORMAT_INVALID': 'format_invalid',
+    'TENANT_ID_MALFORMED': 'id_malformed',
+    'SCHEMA_CREATION_FAILED': 'schema_creation_failed',
+    'SCHEMA_MIGRATION_FAILED': 'schema_migration_failed',
+    'SCHEMA_VALIDATION_FAILED': 'schema_validation_failed',
+    'SCHEMA_ACCESS_DENIED': 'schema_access_denied',
+    'DATABASE_UNAVAILABLE': 'database_unavailable',
+    'DATABASE_CONNECTION_TIMEOUT': 'database_connection_timeout',
+    'DATABASE_CONNECTION_FAILED': 'database_connection_failed',
+    'CONTEXT_SETUP_FAILED': 'context_setup_failed',
+    'CONTEXT_CLEANUP_FAILED': 'context_cleanup_failed',
+    'SEARCH_PATH_UPDATE_FAILED': 'search_path_update_failed'
+  };
+  
+  const errorKey = errorKeyMap[errorCode];
+  if (errorKey && t.errors.tenant[errorKey]) {
+    return t.errors.tenant[errorKey];
+  }
+  
+  // Fallback para mensagem padrão se não encontrar tradução
+  return errorCode;
 }

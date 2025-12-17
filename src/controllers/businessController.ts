@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { supabaseAdmin } from '../supabaseClient';
+import { TenantRequest } from '../types/tenant';
+import { getTenantAdminClient } from '../utils/tenantClientHelper';
 import { 
   CreateBusinessSchema, 
   UpdateBusinessSchema, 
@@ -18,7 +20,7 @@ import {
   handleFilterError,
   buildPaginatedQuery,
   createPaginatedResponse,
-  checkEntityExists
+  checkEntityExistsInTenant
 } from '../utils/controllerHelpers';
 import { getLanguageFromRequest, getSuccessMessage } from '../utils/translations';
 
@@ -26,7 +28,7 @@ import { getLanguageFromRequest, getSuccessMessage } from '../utils/translations
  * Create a new business
  * POST /api/business
  */
-export async function createBusiness(req: Request, res: Response): Promise<void> {
+export async function createBusiness(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate request body using Zod schema
     const validationResult = CreateBusinessSchema.safeParse(req.body);
@@ -45,8 +47,12 @@ export async function createBusiness(req: Request, res: Response): Promise<void>
       currency: businessData.currency || Currencies.BRL
     };
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Insert business into database
-    const { data: createdBusiness, error } = await supabaseAdmin
+    const { data: createdBusiness, error } = await tenantClient
+      .getClient()
       .from('business')
       .insert(businessToInsert)
       .select()
@@ -70,7 +76,7 @@ export async function createBusiness(req: Request, res: Response): Promise<void>
  * Get business with filtering and pagination
  * GET /api/business
  */
-export async function getBusiness(req: Request, res: Response): Promise<void> {
+export async function getBusiness(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate query parameters using Zod schema
     const validationResult = BusinessQueryParamsSchema.safeParse(req.query);
@@ -86,8 +92,11 @@ export async function getBusiness(req: Request, res: Response): Promise<void> {
     const page = queryParams.page || 1;
     const size = queryParams.size || 10;
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Build base query with proper select for relationship filtering
-    let query = supabaseAdmin.from('business').select('*', { count: 'exact' });
+    let query = tenantClient.getClient().from('business').select('*', { count: 'exact' });
 
     // Apply dynamic filter if provided
     if (queryParams.filter) {
@@ -117,7 +126,7 @@ export async function getBusiness(req: Request, res: Response): Promise<void> {
         // If we have relationship filters, we need to rebuild the query with proper select
         if (parsedFilter.hasRelationshipFilter) {
           // Rebuild query with relationship includes for filtering
-          query = supabaseAdmin
+          query = tenantClient.getClient()
             .from('business')
             .select('*', { count: 'exact' });
         }
@@ -159,7 +168,7 @@ export async function getBusiness(req: Request, res: Response): Promise<void> {
  * Get a single business by ID
  * GET /api/business/:id
  */
-export async function getBusinessById(req: Request, res: Response): Promise<void> {
+export async function getBusinessById(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate route parameters
     const paramValidation = BusinessIdParamSchema.safeParse(req.params);
@@ -171,8 +180,12 @@ export async function getBusinessById(req: Request, res: Response): Promise<void
 
     const { id } = paramValidation.data;
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Fetch business from database
-    const { data: business, error } = await supabaseAdmin
+    const { data: business, error } = await tenantClient
+      .getClient()
       .from('business')
       .select('*')
       .eq('id', id)
@@ -195,7 +208,7 @@ export async function getBusinessById(req: Request, res: Response): Promise<void
  * Update an existing business
  * PUT /api/business/:id
  */
-export async function updateBusiness(req: Request, res: Response): Promise<void> {
+export async function updateBusiness(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate route parameters
     const paramValidation = BusinessIdParamSchema.safeParse(req.params);
@@ -218,7 +231,7 @@ export async function updateBusiness(req: Request, res: Response): Promise<void>
     const updateData: UpdateBusinessInput = validationResult.data;
 
     // Check if business exists first
-    const exists = await checkEntityExists('business', id);
+    const exists = await checkEntityExistsInTenant(req, 'business', id);
     if (!exists) {
       handleNotFound('Business', res, req);
       return;
@@ -227,8 +240,12 @@ export async function updateBusiness(req: Request, res: Response): Promise<void>
     // Convert API data (camelCase) to database format (snake_case)
     const dbUpdateData = businessApiToDb(updateData);
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Update business in database
-    const { data: updatedBusiness, error } = await supabaseAdmin
+    const { data: updatedBusiness, error } = await tenantClient
+      .getClient()
       .from('business')
       .update(dbUpdateData)
       .eq('id', id)
@@ -252,7 +269,7 @@ export async function updateBusiness(req: Request, res: Response): Promise<void>
  * Delete a business
  * DELETE /api/business/:id
  */
-export async function deleteBusiness(req: Request, res: Response): Promise<void> {
+export async function deleteBusiness(req: TenantRequest, res: Response): Promise<void> {
   try {
     // Validate route parameters
     const paramValidation = BusinessIdParamSchema.safeParse(req.params);
@@ -265,14 +282,18 @@ export async function deleteBusiness(req: Request, res: Response): Promise<void>
     const { id } = paramValidation.data;
 
     // Check if business exists first
-    const exists = await checkEntityExists('business', id);
+    const exists = await checkEntityExistsInTenant(req, 'business', id);
     if (!exists) {
       handleNotFound('Business', res, req);
       return;
     }
 
+    // Get tenant-aware admin client
+    const tenantClient = getTenantAdminClient(req);
+
     // Delete business from database
-    const { error } = await supabaseAdmin
+    const { error } = await tenantClient
+      .getClient()
       .from('business')
       .delete()
       .eq('id', id);

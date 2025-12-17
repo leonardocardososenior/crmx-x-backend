@@ -2,6 +2,10 @@
 export * from './enums';
 import type { SupportedLocale } from './enums';
 
+// Import tenant-related types
+export * from './tenant';
+export * from './tenantErrors';
+
 // User Interface (Database representation - snake_case)
 export interface UserDB {
   id: string;
@@ -232,7 +236,7 @@ export interface TokenCache {
 export interface ErrorResponse {
   message: string;
   status: number;
-  requestId?: string;
+  tenant?: string;
 }
 
 export interface PaginatedResponse<T> {
